@@ -11,6 +11,7 @@
   "project",
   "workspace",
   "col_1",
+  "issue_type",
   "status",
   "priority",
   "rank",
@@ -24,10 +25,12 @@
   "start_date",
   "due_date",
   "estimate",
+  "recurrence",
   "col_3",
   "parent_issue",
   "desc_section",
-  "description"
+  "description",
+  "checklist"
  ],
  "fields": [
   {
@@ -65,6 +68,15 @@
   {
    "fieldname": "col_1",
    "fieldtype": "Column Break"
+  },
+  {
+   "default": "Task",
+   "fieldname": "issue_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Type",
+   "options": "Task\nBug\nStory\nEpic"
   },
   {
    "fieldname": "status",
@@ -161,6 +173,19 @@
    "fieldname": "description",
    "fieldtype": "Text Editor",
    "label": "Description"
+  },
+  {
+   "fieldname": "checklist",
+   "fieldtype": "Table",
+   "label": "Checklist",
+   "options": "Projex Issue Checklist Item"
+  },
+  {
+   "fieldname": "recurrence",
+   "fieldtype": "Select",
+   "label": "Recurrence",
+   "options": "None\nDaily\nWeekly\nBiweekly\nMonthly",
+   "default": "None"
   }
  ],
  "grid_page_length": 50,

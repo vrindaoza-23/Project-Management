@@ -1,12 +1,12 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { createResource, Dialog, Button, Avatar } from 'frappe-ui'
+import { createResource, Dialog, Button, Avatar, DatePicker } from 'frappe-ui'
 import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import { store, reloadBootstrap, userName } from '@/data/store'
 
 const props = defineProps({ open: Boolean, project: { type: String, required: true } })
-const emit = defineEmits(['close', 'changed'])
+const emit = defineEmits(['close', 'changed', 'deleted'])
 
 const tab = ref('general')
 const TABS = [
@@ -27,11 +27,21 @@ const labelDelete = createResource({ url: 'projex.api.delete_label' })
 const cycleCreate = createResource({ url: 'projex.api.create_cycle' })
 const cycleDelete = createResource({ url: 'projex.api.delete_cycle' })
 const linkSaver = createResource({ url: 'projex.api.set_project_links' })
+const deleter = createResource({ url: 'projex.api.delete_project' })
+const archiver = createResource({ url: 'projex.api.archive_project' })
+const duplicator = createResource({ url: 'projex.api.duplicate_project' })
+const bulkInviter = createResource({ url: 'projex.api.bulk_invite' })
+const linkLister = createResource({ url: 'projex.api.list_invite_links' })
+const linkCreator = createResource({ url: 'projex.api.create_invite_link' })
+const linkRevoker = createResource({ url: 'projex.api.revoke_invite_link' })
 
 // editable copies
 const gen = ref({})
 const newMember = ref([])
 const inviteEmail = ref('')
+const bulkEmails = ref('')
+const bulkResult = ref(null)
+const inviteLinks = ref([])
 const newLabel = ref({ name: '', color: 'var(--blue-500)' })
 const newCycle = ref({ name: '', start: '', end: '', state: 'Upcoming' })
 const erp = ref({ customer: '', project: '' })
@@ -50,12 +60,24 @@ watch(
 	(v) => {
 		if (v) {
 			tab.value = 'general'
+			bulkResult.value = null
+			inviteLinks.value = []
 			load()
 		}
 	},
 )
+watch(tab, (t) => {
+	if (t === 'members' && detail.data?.project?.can_manage) loadLinks()
+})
 
 const canManage = computed(() => detail.data?.project?.can_manage)
+const teamOptions = computed(() => {
+	const ws = detail.data?.project?.workspace
+	return [
+		{ value: '', label: 'No team' },
+		...store.teams.filter((t) => !ws || t.workspace === ws).map((t) => ({ value: t.name, label: t.team_name })),
+	]
+})
 const userOptions = computed(() => store.users.map((u) => ({ value: u.name, label: u.full_name || u.name })))
 const memberIds = computed(() => (detail.data?.members || []).map((m) => m.user))
 const assignableUsers = computed(() => userOptions.value.filter((u) => !memberIds.value.includes(u.value)))
@@ -69,6 +91,7 @@ async function saveGeneral() {
 			color: gen.value.color,
 			status: gen.value.status,
 			lead: gen.value.lead,
+			team: gen.value.team || null,
 		}),
 	})
 	await reloadBootstrap()
@@ -93,6 +116,35 @@ async function invite() {
 	inviteEmail.value = ''
 	await reloadBootstrap()
 	load()
+}
+
+async function bulkInvite() {
+	if (!bulkEmails.value.trim()) return
+	const res = await bulkInviter.submit({ project: props.project, emails: bulkEmails.value })
+	bulkResult.value = res.results || []
+	bulkEmails.value = ''
+	await reloadBootstrap()
+	load()
+}
+
+async function loadLinks() {
+	inviteLinks.value = (await linkLister.submit({ project: props.project })) || []
+}
+async function makeInviteLink() {
+	await linkCreator.submit({ project: props.project, role: 'Member', expires_days: 7 })
+	await loadLinks()
+}
+async function copyLink(url) {
+	try {
+		await navigator.clipboard.writeText(url)
+		window.alert('Invite link copied to clipboard')
+	} catch {
+		window.prompt('Copy this invite link:', url)
+	}
+}
+async function revokeLink(name) {
+	await linkRevoker.submit({ name })
+	await loadLinks()
 }
 
 async function addLabel() {
@@ -130,6 +182,55 @@ async function saveErp() {
 		erpnext_project: erp.value.project || null,
 	})
 }
+
+// Footer primary action depends on the active tab; tabs that mutate inline
+// (members/labels/cycles) don't need one, so the footer just shows Close there.
+const primaryAction = computed(() => {
+	if (!canManage.value) return null
+	if (tab.value === 'general') return { label: 'Save changes', loading: updater.loading, run: saveGeneral }
+	if (tab.value === 'erpnext') return { label: 'Save links', loading: linkSaver.loading, run: saveErp }
+	return null
+})
+
+async function confirmDelete() {
+	const label = gen.value.project_name || props.project
+	const ok = window.confirm(
+		`Delete project “${label}” and all of its tasks, labels and cycles?\n\nThis cannot be undone.`,
+	)
+	if (!ok) return
+	await deleter.submit({ project: props.project })
+	await reloadBootstrap()
+	emit('deleted', props.project)
+	emit('close')
+}
+
+const isArchived = computed(() => !!detail.data?.project?.is_archived)
+async function toggleArchive() {
+	const next = isArchived.value ? 0 : 1
+	await archiver.submit({ project: props.project, archived: next })
+	if (detail.data?.project) detail.data.project.is_archived = next
+	await reloadBootstrap()
+	if (next) {
+		emit('deleted', props.project) // archived projects leave the sidebar; route away
+		emit('close')
+	}
+}
+
+async function duplicate() {
+	const name = (window.prompt('Name for the duplicated project', `${gen.value.project_name || props.project} copy`) || '').trim()
+	if (!name) return
+	const key = (window.prompt('Key for the new project (e.g. ABC)') || '').trim().toUpperCase()
+	if (!key) return
+	const withIssues = window.confirm('Copy all tasks into the new project too?\n\nOK = copy tasks (as a template, reset to first status)\nCancel = structure only (labels, cycles, members)')
+	const res = await duplicator.submit({
+		project: props.project, new_name: name, new_key: key,
+		include_issues: withIssues ? 1 : 0, reset_status: 1,
+	})
+	await reloadBootstrap()
+	emit('changed')
+	emit('close')
+	window.alert(`Created “${name}” (${res.key})${res.issues_copied ? ` with ${res.issues_copied} tasks` : ''}.`)
+}
 </script>
 
 <template>
@@ -150,7 +251,8 @@ async function saveErp() {
 			<div v-show="tab === 'general'" class="flex col g-3">
 				<label class="flex col g-1">
 					<span class="t-xs ink-5">Name</span>
-					<input v-model="gen.project_name" class="input" :disabled="!canManage" />
+					<input v-model="gen.project_name" class="input" :disabled="!canManage" placeholder="Project name" />
+					<span class="t-2xs ink-5">Edit the name to rename the project, then “Save changes”. The project key ({{ detail.data?.project?.key }}) is fixed.</span>
 				</label>
 				<div class="flex col g-1">
 					<span class="t-xs ink-5">Status</span>
@@ -165,12 +267,39 @@ async function saveErp() {
 					<SelectField :options="userOptions" :model-value="gen.lead" @change="(v) => (gen.lead = v)" />
 				</div>
 				<div class="flex col g-1">
+					<span class="t-xs ink-5">Team</span>
+					<SelectField :options="teamOptions" :model-value="gen.team || ''" placeholder="No team" @change="(v) => (gen.team = v || null)" />
+				</div>
+				<div class="flex col g-1">
 					<span class="t-xs ink-5">Color</span>
 					<div class="flex g-2">
 						<button v-for="c in COLORS" :key="c" class="pjx-sw" :class="{ on: gen.color === c }" :style="{ background: c }" @click="gen.color = c" />
 					</div>
 				</div>
-				<div v-if="canManage"><Button variant="solid" theme="gray" :loading="updater.loading" @click="saveGeneral">Save</Button></div>
+
+				<div v-if="canManage" class="pjx-zone">
+					<div class="flex col g-1" style="flex: 1">
+						<span class="t-sm" style="font-weight: 600">Duplicate project</span>
+						<span class="t-xs ink-5">Create a copy — as a reusable template, with or without its tasks.</span>
+					</div>
+					<Button variant="subtle" theme="gray" :loading="duplicator.loading" @click="duplicate">Duplicate…</Button>
+				</div>
+
+				<div v-if="canManage" class="pjx-zone">
+					<div class="flex col g-1" style="flex: 1">
+						<span class="t-sm" style="font-weight: 600">{{ isArchived ? 'Unarchive project' : 'Archive project' }}</span>
+						<span class="t-xs ink-5">{{ isArchived ? 'Restore this project to the sidebar.' : 'Hide from the sidebar without deleting anything. Reversible.' }}</span>
+					</div>
+					<Button variant="subtle" theme="gray" :loading="archiver.loading" @click="toggleArchive">{{ isArchived ? 'Unarchive' : 'Archive' }}</Button>
+				</div>
+
+				<div v-if="canManage" class="pjx-danger">
+					<div class="flex col g-1" style="flex: 1">
+						<span class="t-sm" style="font-weight: 600; color: var(--ink-red-3)">Delete project</span>
+						<span class="t-xs ink-5">Permanently removes this project and all of its tasks. This can't be undone.</span>
+					</div>
+					<Button theme="red" variant="subtle" :loading="deleter.loading" @click="confirmDelete">Delete project…</Button>
+				</div>
 			</div>
 
 			<!-- MEMBERS -->
@@ -191,12 +320,43 @@ async function saveErp() {
 						</div>
 						<Button variant="subtle" theme="gray" :disabled="!newMember.length" @click="addMembers">Add</Button>
 					</div>
-					<div class="flex g-2 items-end">
-						<label class="flex col g-1" style="flex: 1">
-							<span class="t-xs ink-5">Invite by email</span>
-							<input v-model="inviteEmail" class="input" placeholder="teammate@company.com" />
-						</label>
-						<Button variant="subtle" theme="gray" :loading="inviter.loading" @click="invite">Invite</Button>
+					<div class="flex col g-1">
+						<span class="t-xs ink-5">Invite by email — paste many (commas, spaces or new lines)</span>
+						<textarea
+							v-model="bulkEmails"
+							class="input"
+							rows="2"
+							placeholder="ann@company.com, ben@company.com&#10;cara@company.com"
+							style="resize: vertical; font-family: var(--font-sans)"
+						/>
+						<div class="flex g-2" style="justify-content: flex-end">
+							<Button variant="subtle" theme="gray" :loading="bulkInviter.loading" :disabled="!bulkEmails.trim()" @click="bulkInvite">Send invites</Button>
+						</div>
+						<div v-if="bulkResult" class="flex col g-1" style="margin-top: 4px">
+							<span v-for="r in bulkResult" :key="r.email" class="t-xs">
+								<span :style="{ color: r.status === 'error' ? 'var(--ink-red-3)' : 'var(--ink-green-3)' }">●</span>
+								{{ r.email }} — {{ r.status }}{{ r.message ? ': ' + r.message : '' }}
+							</span>
+						</div>
+					</div>
+
+					<div class="pjx-zone" style="flex-direction: column; align-items: stretch; gap: 8px">
+						<div class="flex items-center g-2">
+							<div class="flex col g-1" style="flex: 1">
+								<span class="t-sm" style="font-weight: 600">Invite link</span>
+								<span class="t-xs ink-5">Anyone with the link can join this project (expires in 7 days).</span>
+							</div>
+							<Button variant="subtle" theme="gray" :loading="linkCreator.loading" @click="makeInviteLink">Create link</Button>
+						</div>
+						<div v-for="lk in inviteLinks" :key="lk.name" class="flex items-center g-2 pjx-linkrow">
+							<input class="input" :value="lk.url" readonly style="flex: 1; font-size: 12px" @focus="(e) => e.target.select()" />
+							<Button variant="ghost" theme="gray" title="Copy" @click="copyLink(lk.url)">
+								<template #icon><Icon name="copy" :size="14" /></template>
+							</Button>
+							<Button variant="ghost" theme="gray" title="Revoke" @click="revokeLink(lk.name)">
+								<template #icon><Icon name="trash-2" :size="14" /></template>
+							</Button>
+						</div>
 					</div>
 				</template>
 			</div>
@@ -236,8 +396,8 @@ async function saveErp() {
 				<div v-if="canManage" class="flex col g-2">
 					<div class="flex g-2">
 						<input v-model="newCycle.name" class="input" placeholder="Cycle name" style="flex: 1" />
-						<input v-model="newCycle.start" type="date" class="input" />
-						<input v-model="newCycle.end" type="date" class="input" />
+						<DatePicker v-model="newCycle.start" placeholder="Start date" />
+						<DatePicker v-model="newCycle.end" placeholder="End date" />
 					</div>
 					<div><Button variant="subtle" theme="gray" @click="addCycle">Add cycle</Button></div>
 				</div>
@@ -254,11 +414,22 @@ async function saveErp() {
 					<span class="t-xs ink-5">ERPNext Project</span>
 					<input v-model="erp.project" class="input" :disabled="!canManage" placeholder="Project name" />
 				</label>
-				<div v-if="canManage"><Button variant="solid" theme="gray" :loading="linkSaver.loading" @click="saveErp">Save links</Button></div>
 			</div>
 		</template>
 		<template #actions>
-			<Button variant="subtle" theme="gray" @click="emit('close')">Done</Button>
+			<div class="flex items-center" style="width: 100%; gap: 8px">
+				<span style="flex: 1" />
+				<Button variant="subtle" theme="gray" @click="emit('close')">Close</Button>
+				<Button
+					v-if="primaryAction"
+					variant="solid"
+					theme="gray"
+					:loading="primaryAction.loading"
+					@click="primaryAction.run"
+				>
+					{{ primaryAction.label }}
+				</Button>
+			</div>
 		</template>
 	</Dialog>
 </template>
@@ -286,5 +457,25 @@ async function saveErp() {
 }
 .pjx-sw.on {
 	border-color: var(--ink-gray-9);
+}
+.pjx-danger {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 8px;
+	padding: 12px;
+	border: 1px solid var(--outline-red-1, var(--outline-gray-2));
+	border-radius: 8px;
+	background: var(--surface-red-1, var(--surface-gray-1));
+}
+.pjx-zone {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-top: 8px;
+	padding: 12px;
+	border: 1px solid var(--outline-gray-2);
+	border-radius: 8px;
+	background: var(--surface-gray-1);
 }
 </style>

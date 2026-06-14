@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:token",
+ "creation": "2026-06-14 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "token",
+  "project",
+  "role",
+  "expires_on",
+  "max_uses",
+  "uses",
+  "disabled"
+ ],
+ "fields": [
+  {
+   "fieldname": "token",
+   "fieldtype": "Data",
+   "label": "Token",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Projex Project",
+   "reqd": 1
+  },
+  {
+   "default": "Member",
+   "fieldname": "role",
+   "fieldtype": "Data",
+   "label": "Role"
+  },
+  {
+   "fieldname": "expires_on",
+   "fieldtype": "Datetime",
+   "label": "Expires On"
+  },
+  {
+   "default": "0",
+   "description": "0 = unlimited",
+   "fieldname": "max_uses",
+   "fieldtype": "Int",
+   "label": "Max Uses"
+  },
+  {
+   "default": "0",
+   "fieldname": "uses",
+   "fieldtype": "Int",
+   "label": "Uses",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "disabled",
+   "fieldtype": "Check",
+   "label": "Disabled"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-06-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Projex",
+ "name": "Projex Invite",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

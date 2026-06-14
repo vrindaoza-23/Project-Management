@@ -20,7 +20,7 @@ from projex.permissions import accessible_projects
 from projex.realtime import emit_presence
 
 ISSUE_FIELDS = [
-	"name", "issue_id", "title", "project", "status", "priority",
+	"name", "issue_id", "title", "project", "status", "priority", "issue_type",
 	"due_date", "start_date", "estimate", "rank", "cycle", "reporter", "parent_issue", "modified",
 ]
 
@@ -54,6 +54,43 @@ def create_workspace(workspace_name, icon=None):
 
 
 @frappe.whitelist()
+def create_team(workspace, team_name, icon=None, color=None):
+	"""Create a Team — an optional grouping of projects inside a workspace."""
+	_ensure_member_role()
+	if not workspace or not frappe.db.exists("Projex Workspace", workspace):
+		frappe.throw("A valid workspace is required")
+	doc = frappe.get_doc({
+		"doctype": "Projex Team", "team_name": team_name,
+		"workspace": workspace, "icon": icon or "users", "color": color,
+	}).insert(ignore_permissions=True)
+	frappe.db.commit()
+	return {"name": doc.name, "team_name": doc.team_name, "workspace": doc.workspace, "icon": doc.icon}
+
+
+@frappe.whitelist()
+def update_team(team, fields):
+	import json
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	doc = frappe.get_doc("Projex Team", team)
+	for k in ("team_name", "icon", "color", "workspace"):
+		if k in fields:
+			doc.set(k, fields[k])
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def delete_team(team):
+	"""Delete a team. Projects are kept — they just become ungrouped."""
+	frappe.db.set_value("Projex Project", {"team": team}, "team", None)
+	frappe.delete_doc("Projex Team", team, ignore_permissions=True, force=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
 def create_project(payload):
 	import json
 	if isinstance(payload, str):
@@ -75,6 +112,7 @@ def create_project(payload):
 		"status": payload.get("status") or "Active",
 		"lead": payload.get("lead") or user,
 		"workspace": payload.get("workspace"),
+		"team": payload.get("team"),
 		"description": payload.get("description"),
 		"members": [{"user": m["user"], "role": m.get("role", "Member")} for m in members],
 	}).insert(ignore_permissions=True)
@@ -90,7 +128,7 @@ def update_project(project, fields):
 	if not _can_manage_project(project):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc("Projex Project", project)
-	for k in ("project_name", "icon", "color", "status", "lead", "description", "workspace"):
+	for k in ("project_name", "icon", "color", "status", "lead", "description", "workspace", "team"):
 		if k in fields:
 			doc.set(k, fields[k])
 	doc.save(ignore_permissions=True)
@@ -122,7 +160,8 @@ def get_project_detail(project):
 		"project": {
 			"name": doc.name, "project_name": doc.project_name, "key": doc.key,
 			"icon": doc.icon, "color": doc.color, "status": doc.status, "lead": doc.lead,
-			"workspace": doc.workspace, "description": doc.description,
+			"workspace": doc.workspace, "team": doc.team, "description": doc.description,
+			"is_archived": doc.is_archived,
 			"can_manage": _can_manage_project(project),
 		},
 		"members": members,
@@ -210,6 +249,120 @@ def invite_user(email, project, full_name=None):
 	return {"name": doc.name, "full_name": doc.full_name, "existing": False}
 
 
+# Split a pasted blob of emails on commas, semicolons, whitespace or newlines.
+import re as _re
+def _parse_emails(blob):
+	if isinstance(blob, (list, tuple)):
+		raw = blob
+	else:
+		raw = _re.split(r"[\s,;]+", blob or "")
+	seen, out = set(), []
+	for e in raw:
+		e = (e or "").strip().lower()
+		if e and e not in seen and _re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", e):
+			seen.add(e)
+			out.append(e)
+	return out
+
+
+@frappe.whitelist()
+def bulk_invite(project, emails):
+	"""Invite many people at once (paste or CSV). Creates a Frappe user where
+	needed and adds each to the project. Returns a per-email summary."""
+	if not _can_manage_project(project):
+		frappe.throw("Only a project admin can invite people", frappe.PermissionError)
+	parsed = _parse_emails(emails)
+	if not parsed:
+		frappe.throw("No valid email addresses found")
+	existing_members = {
+		m.user for m in frappe.get_all(
+			"Projex Project Member", filters={"parent": project}, fields=["user"])
+	}
+	results = []
+	for email in parsed:
+		try:
+			res = invite_user(email=email, project=project)  # gated + throttled
+			user = res["name"]
+			if user not in existing_members:
+				add_member(parent_doctype="Projex Project", parent=project, user=user, role="Member")
+				existing_members.add(user)
+			results.append({"email": email, "status": "existing" if res.get("existing") else "invited"})
+		except Exception as e:
+			results.append({"email": email, "status": "error", "message": str(e)})
+	return {"results": results}
+
+
+@frappe.whitelist()
+def create_invite_link(project, role="Member", expires_days=7, max_uses=0):
+	"""Create a shareable join link for a project (manage-gated)."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	token = frappe.generate_hash(length=24)
+	expires_on = None
+	if int(expires_days or 0) > 0:
+		expires_on = frappe.utils.add_to_date(frappe.utils.now_datetime(), days=int(expires_days))
+	doc = frappe.get_doc({
+		"doctype": "Projex Invite", "token": token, "project": project,
+		"role": role or "Member", "expires_on": expires_on,
+		"max_uses": int(max_uses or 0), "uses": 0, "disabled": 0,
+	}).insert(ignore_permissions=True)
+	frappe.db.commit()
+	return {"token": token, "url": f"{frappe.utils.get_url()}/projex?invite={token}", "name": doc.name}
+
+
+@frappe.whitelist()
+def list_invite_links(project):
+	"""Active (non-disabled) invite links for a project (manage-gated)."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	rows = frappe.get_all(
+		"Projex Invite", filters={"project": project, "disabled": 0},
+		fields=["name", "token", "role", "expires_on", "max_uses", "uses"],
+		order_by="creation desc",
+	)
+	for r in rows:
+		r["url"] = f"{frappe.utils.get_url()}/projex?invite={r['token']}"
+	return rows
+
+
+@frappe.whitelist()
+def revoke_invite_link(name):
+	project = frappe.db.get_value("Projex Invite", name, "project")
+	if not project or not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	frappe.db.set_value("Projex Invite", name, "disabled", 1)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def accept_invite(token):
+	"""Add the logged-in user to the invite's project. Idempotent; validates
+	expiry, disabled flag and use cap."""
+	user = frappe.session.user
+	if user == "Guest":
+		frappe.throw("Please log in to accept this invite", frappe.PermissionError)
+	name = frappe.db.exists("Projex Invite", {"token": token, "disabled": 0})
+	if not name:
+		frappe.throw("This invite link is invalid or has been revoked")
+	inv = frappe.get_doc("Projex Invite", name)
+	if inv.expires_on and frappe.utils.get_datetime(inv.expires_on) < frappe.utils.now_datetime():
+		frappe.throw("This invite link has expired")
+	if inv.max_uses and inv.uses >= inv.max_uses:
+		frappe.throw("This invite link has reached its use limit")
+
+	_ensure_member_role()
+	already = frappe.db.exists("Projex Project Member", {"parent": inv.project, "user": user})
+	if not already:
+		proj = frappe.get_doc("Projex Project", inv.project)
+		proj.append("members", {"user": user, "role": inv.role or "Member"})
+		proj.save(ignore_permissions=True)
+		inv.db_set("uses", (inv.uses or 0) + 1)
+	frappe.db.commit()
+	key = frappe.db.get_value("Projex Project", inv.project, "key")
+	return {"project": inv.project, "key": key, "already_member": bool(already)}
+
+
 @frappe.whitelist()
 def create_label(project, label_name, color=None):
 	if not _can_manage_project(project):
@@ -245,6 +398,24 @@ def create_cycle(project, cycle_name, start_date=None, end_date=None, state="Upc
 
 
 @frappe.whitelist()
+def update_cycle(name, fields):
+	"""Edit a cycle/sprint (rename, dates, or state: Upcoming/Active/Completed)."""
+	import json
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	project = frappe.db.get_value("Projex Cycle", name, "project")
+	if project and not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc("Projex Cycle", name)
+	for k in ("cycle_name", "start_date", "end_date", "state"):
+		if k in fields:
+			doc.set(k, fields[k] or None)
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"name": doc.name, "state": doc.state}
+
+
+@frappe.whitelist()
 def delete_cycle(name):
 	project = frappe.db.get_value("Projex Cycle", name, "project")
 	if project and not _can_manage_project(project):
@@ -252,6 +423,139 @@ def delete_cycle(name):
 	frappe.delete_doc("Projex Cycle", name, ignore_permissions=True)
 	frappe.db.commit()
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def delete_project(project):
+	"""Delete a project and everything scoped to it (admin only, irreversible).
+
+	Removes dependent rows in dependency order via direct deletes (avoids
+	link-validation errors), then the project doc itself.
+	"""
+	if not _can_manage_project(project):
+		frappe.throw("Only a project admin can delete this project", frappe.PermissionError)
+	if not frappe.db.exists("Projex Project", project):
+		return {"ok": True}
+
+	issues = frappe.get_all("Projex Issue", filters={"project": project}, pluck="name")
+	if issues:
+		frappe.db.delete("Projex Comment", {"issue": ["in", issues]})
+		frappe.db.delete("Projex Issue Link", {"issue": ["in", issues]})
+		frappe.db.delete("Projex Issue Link", {"target": ["in", issues]})
+		frappe.db.delete("Projex Notification", {"issue": ["in", issues]})
+		frappe.db.delete("Projex Issue Assignee", {"parent": ["in", issues]})
+		frappe.db.delete("Projex Issue Label", {"parent": ["in", issues]})
+		frappe.db.delete("Projex Issue", {"project": project})
+	frappe.db.delete("Projex Activity", {"project": project})
+	frappe.db.delete("Projex Favorite", {"project": project})
+	frappe.db.delete("Projex View", {"project": project})
+	frappe.db.delete("Projex Label", {"project": project})
+	frappe.db.delete("Projex Cycle", {"project": project})
+	frappe.db.delete("Projex Status", {"project": project})
+	frappe.delete_doc("Projex Project", project, ignore_permissions=True, force=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def archive_project(project, archived=1):
+	"""Toggle a project's archived flag (manage-gated). Archived projects are
+	hidden from the main sidebar but kept intact (reversible)."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	frappe.db.set_value("Projex Project", project, "is_archived", 1 if int(archived) else 0)
+	frappe.db.commit()
+	return {"ok": True, "is_archived": 1 if int(archived) else 0}
+
+
+@frappe.whitelist()
+def duplicate_project(project, new_name, new_key, include_issues=1, reset_status=1):
+	"""Clone a project as a template: meta, members, labels, cycles, and
+	(optionally) its issues with their hierarchy. Comments/time/attachments are
+	never copied. When reset_status, every cloned issue starts in the first
+	unstarted status."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	new_key = (new_key or "").strip().upper()
+	if not new_key:
+		frappe.throw("A project key is required")
+	if frappe.db.exists("Projex Project", new_key):
+		frappe.throw(f"Project key '{new_key}' already in use")
+	include_issues = int(include_issues)
+	reset_status = int(reset_status)
+
+	src = frappe.get_doc("Projex Project", project)
+	new_proj = frappe.get_doc({
+		"doctype": "Projex Project",
+		"project_name": new_name or f"{src.project_name} copy",
+		"key": new_key,
+		"icon": src.icon, "color": src.color, "status": src.status,
+		"workspace": src.workspace, "lead": frappe.session.user,
+		"description": src.description,
+		"members": [{"user": m.user, "role": m.role} for m in src.members],
+	}).insert(ignore_permissions=True)
+
+	# Per-project labels + cycles must be recreated and remapped.
+	label_map = {}
+	for lbl in frappe.get_all("Projex Label", filters={"project": project},
+							  fields=["name", "label_name", "color"]):
+		nl = frappe.get_doc({
+			"doctype": "Projex Label", "project": new_proj.name,
+			"label_name": lbl.label_name, "color": lbl.color,
+		}).insert(ignore_permissions=True)
+		label_map[lbl.name] = nl.name
+	cycle_map = {}
+	for cyc in frappe.get_all("Projex Cycle", filters={"project": project},
+							  fields=["name", "cycle_name", "start_date", "end_date", "state"]):
+		nc = frappe.get_doc({
+			"doctype": "Projex Cycle", "project": new_proj.name, "cycle_name": cyc.cycle_name,
+			"start_date": cyc.start_date, "end_date": cyc.end_date, "state": cyc.state,
+		}).insert(ignore_permissions=True)
+		cycle_map[cyc.name] = nc.name
+
+	issues_copied = 0
+	if include_issues:
+		first_unstarted = frappe.db.get_value(
+			"Projex Status", {"category": "unstarted", "project": ["in", ["", None]]},
+			"name", order_by="position asc",
+		)
+		src_issues = frappe.get_all(
+			"Projex Issue", filters={"project": project},
+			fields=["name", "title", "description", "priority", "issue_type", "estimate",
+					"due_date", "start_date", "status", "cycle", "parent_issue", "rank"],
+			order_by="creation asc", limit_page_length=1000,
+		)
+		issue_map = {}
+		# Pass 1: create issues (no parent links yet).
+		for it in src_issues:
+			doc = frappe.get_doc({
+				"doctype": "Projex Issue", "project": new_proj.name, "workspace": src.workspace,
+				"title": it.title, "description": it.description, "priority": it.priority,
+				"issue_type": it.issue_type, "estimate": it.estimate,
+				"due_date": it.due_date, "start_date": it.start_date,
+				"status": first_unstarted if reset_status else it.status,
+				"cycle": cycle_map.get(it.cycle), "rank": it.rank,
+				"assignees": [
+					{"user": a.user} for a in frappe.get_all(
+						"Projex Issue Assignee", filters={"parent": it.name}, fields=["user"])
+				],
+				# Per-project labels are remapped to their clones; global labels
+				# (project unset) are shared, so keep the original reference.
+				"labels": [
+					{"label": label_map.get(l.label, l.label)} for l in frappe.get_all(
+						"Projex Issue Label", filters={"parent": it.name}, fields=["label"])
+				],
+			}).insert(ignore_permissions=True)
+			issue_map[it.name] = doc.name
+			issues_copied += 1
+		# Pass 2: rewire parent_issue using the old→new map.
+		for it in src_issues:
+			if it.parent_issue and it.parent_issue in issue_map:
+				frappe.db.set_value("Projex Issue", issue_map[it.name],
+									"parent_issue", issue_map[it.parent_issue])
+
+	frappe.db.commit()
+	return {"name": new_proj.name, "key": new_proj.key, "issues_copied": issues_copied}
 
 
 # --------------------------------------------------------------------------- #
@@ -262,12 +566,16 @@ def bootstrap():
 	"""Everything the app shell needs on load: projects, workspaces, people."""
 	projects = frappe.get_list(
 		"Projex Project",
-		fields=["name", "project_name", "key", "icon", "color", "status", "workspace", "lead"],
+		fields=["name", "project_name", "key", "icon", "color", "status", "workspace", "team", "lead", "is_archived"],
 		order_by="project_name asc",
 		ignore_permissions=False,
 	)
 	workspaces = frappe.get_all(
 		"Projex Workspace", fields=["name", "workspace_name", "icon"], order_by="workspace_name asc"
+	)
+	teams = frappe.get_all(
+		"Projex Team", fields=["name", "team_name", "workspace", "icon", "color"],
+		order_by="team_name asc",
 	)
 	users = frappe.get_all(
 		"User",
@@ -285,6 +593,7 @@ def bootstrap():
 		"user": frappe.session.user,
 		"projects": projects,
 		"workspaces": workspaces,
+		"teams": teams,
 		"users": users,
 		"counts": counts,
 		"favorites": favorites,
@@ -463,9 +772,11 @@ def get_issue(name):
 		"issue": {
 			"name": doc.name, "issue_id": doc.issue_id, "title": doc.title,
 			"description": doc.description, "project": doc.project, "status": doc.status,
-			"priority": doc.priority, "due_date": str(doc.due_date) if doc.due_date else None,
+			"priority": doc.priority, "issue_type": doc.issue_type,
+			"due_date": str(doc.due_date) if doc.due_date else None,
 			"start_date": str(doc.start_date) if doc.start_date else None,
 			"estimate": doc.estimate, "cycle": doc.cycle, "reporter": doc.reporter,
+			"recurrence": doc.recurrence or "None",
 			"parent_issue": doc.parent_issue, "creation": str(doc.creation),
 			"modified": str(doc.modified),
 			"assignees": [a.user for a in doc.assignees],
@@ -473,6 +784,9 @@ def get_issue(name):
 		"status_meta": status,
 		"labels": labels,
 		"subtasks": subtasks,
+		"checklist": [
+			{"name": c.name, "title": c.title, "done": bool(c.done)} for c in doc.checklist
+		],
 		"comments": comments,
 		"links": links,
 		"attachments": attachments,
@@ -483,8 +797,8 @@ def get_issue(name):
 # Everything else (issue_id, rank, reporter, owner, name, …) is off-limits to
 # prevent mass-assignment; rank changes go through reorder_issue.
 EDITABLE_ISSUE_FIELDS = {
-	"title", "description", "status", "priority", "due_date", "start_date",
-	"estimate", "cycle", "parent_issue", "assignees", "labels",
+	"title", "description", "status", "priority", "issue_type", "due_date", "start_date",
+	"estimate", "cycle", "parent_issue", "assignees", "labels", "recurrence",
 }
 
 
@@ -514,6 +828,77 @@ def update_issue(name, fields):
 
 
 @frappe.whitelist()
+def bulk_update_issues(names, fields):
+	"""Apply `fields` (same allowlist as update_issue) to many issues at once.
+
+	Each issue is loaded→saved individually so controller hooks (realtime,
+	activity) fire per issue. Returns the count updated.
+	"""
+	import json
+	if isinstance(names, str):
+		names = json.loads(names)
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	clean = {k: v for k, v in fields.items() if k in EDITABLE_ISSUE_FIELDS}
+	if not clean:
+		frappe.throw("No editable fields supplied")
+	updated = 0
+	for name in names or []:
+		doc = frappe.get_doc("Projex Issue", name)  # respects has_permission
+		for k, v in clean.items():
+			if k == "assignees":
+				doc.set("assignees", [{"user": u} for u in (v or [])])
+			elif k == "labels":
+				doc.set("labels", [{"label": lbl} for lbl in (v or [])])
+			else:
+				doc.set(k, v)
+		doc.save()
+		updated += 1
+	frappe.db.commit()
+	return {"updated": updated}
+
+
+@frappe.whitelist()
+def bulk_delete_issues(names):
+	"""Delete many issues at once (subtasks cascade via Frappe link checks)."""
+	import json
+	if isinstance(names, str):
+		names = json.loads(names)
+	deleted = 0
+	for name in names or []:
+		frappe.delete_doc("Projex Issue", name)  # respects has_permission
+		deleted += 1
+	frappe.db.commit()
+	return {"deleted": deleted}
+
+
+@frappe.whitelist()
+def set_checklist(issue, items):
+	"""Replace an issue's checklist with `items` (list of {title, done}).
+
+	Whole-table replace keeps the API tiny and atomic — the drawer sends the
+	full list on every add/toggle/delete. Goes through load→save so the issue's
+	controller hooks (realtime) fire.
+	"""
+	import json
+	if isinstance(items, str):
+		items = json.loads(items)
+	doc = frappe.get_doc("Projex Issue", issue)  # respects has_permission
+	doc.set("checklist", [
+		{"title": (it.get("title") or "").strip(), "done": 1 if it.get("done") else 0}
+		for it in (items or [])
+		if (it.get("title") or "").strip()
+	])
+	doc.save()
+	frappe.db.commit()
+	return {
+		"checklist": [
+			{"name": c.name, "title": c.title, "done": bool(c.done)} for c in doc.checklist
+		]
+	}
+
+
+@frappe.whitelist()
 def create_issue(payload):
 	"""Create an issue with optional assignees/labels (used by the create dialog)."""
 	import json
@@ -526,7 +911,7 @@ def create_issue(payload):
 	doc = frappe.new_doc("Projex Issue")
 	doc.title = payload.get("title")
 	doc.project = project
-	for f in ("status", "priority", "due_date", "estimate", "cycle", "description", "parent_issue"):
+	for f in ("status", "priority", "issue_type", "due_date", "estimate", "cycle", "description", "parent_issue"):
 		if payload.get(f):
 			doc.set(f, payload[f])
 	doc.set("assignees", [{"user": u} for u in payload.get("assignees", [])])
@@ -548,7 +933,8 @@ def get_pickers(project):
 	)
 	cycles = frappe.get_all(
 		"Projex Cycle", filters={"project": project},
-		fields=["name", "cycle_name", "state"], order_by="start_date desc",
+		fields=["name", "cycle_name", "state", "start_date", "end_date"],
+		order_by="start_date desc",
 	)
 	users = frappe.get_all(
 		"User", filters={"enabled": 1, "user_type": "System User"},
@@ -772,6 +1158,266 @@ def get_project_reports(project):
 	}
 
 
+@frappe.whitelist()
+def get_burndown(project, cycle=None):
+	"""Sprint burndown: ideal vs. actual remaining story points per day.
+
+	Picks the given cycle, else the Active one, else the most recent dated cycle.
+	`remaining` is filled up to today only; future days are null so the actual
+	line stops at "now".
+	"""
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	if not cycle:
+		active = frappe.get_all(
+			"Projex Cycle", filters={"project": project, "state": "Active"},
+			fields=["name"], limit=1,
+		)
+		if active:
+			cycle = active[0].name
+		else:
+			recent = frappe.get_all(
+				"Projex Cycle", filters={"project": project, "start_date": ["is", "set"]},
+				fields=["name"], order_by="start_date desc", limit=1,
+			)
+			cycle = recent[0].name if recent else None
+
+	if not cycle:
+		return {"cycle": None, "series": [], "total_points": 0}
+
+	c = frappe.db.get_value(
+		"Projex Cycle", cycle, ["name", "cycle_name", "start_date", "end_date"], as_dict=True
+	)
+	if not c or not c.start_date or not c.end_date:
+		return {"cycle": cycle, "cycle_name": c.cycle_name if c else None, "series": [], "total_points": 0,
+				"needs_dates": True}
+
+	completed_statuses = {
+		s.name for s in frappe.get_all(
+			"Projex Status", filters={"category": ["in", ["completed", "cancelled"]]}, fields=["name"]
+		)
+	}
+	issues = frappe.get_all(
+		"Projex Issue", filters={"project": project, "cycle": cycle},
+		fields=["name", "estimate", "status", "modified"],
+	)
+	total = sum((i.estimate or 0) for i in issues)
+
+	# points completed on each day (approx: status is done as of `modified`)
+	done_on = {}
+	for i in issues:
+		if i.status in completed_statuses:
+			d = getdate(i.modified)
+			done_on[d] = done_on.get(d, 0) + (i.estimate or 0)
+
+	start, end = getdate(c.start_date), getdate(c.end_date)
+	span = (end - start).days
+	today = getdate(nowdate())
+	series, burned = [], 0
+	for n in range(span + 1):
+		day = add_days(start, n)
+		day_d = getdate(day)
+		ideal = round(total * (1 - n / span), 2) if span else 0
+		burned += done_on.get(day_d, 0)
+		remaining = (total - burned) if day_d <= today else None
+		series.append({"date": str(day), "ideal": ideal, "remaining": remaining})
+
+	return {
+		"cycle": cycle, "cycle_name": c.cycle_name,
+		"start_date": str(start), "end_date": str(end),
+		"total_points": total, "series": series,
+	}
+
+
+# --------------------------------------------------------------------------- #
+# Issues dashboard + sprint review
+# --------------------------------------------------------------------------- #
+@frappe.whitelist()
+def get_issues_dashboard(project):
+	"""Aggregate issue counts for the project issues dashboard: by type, status
+	category, priority, plus open-bug spotlight and per-assignee load."""
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	base = {"project": project, "parent_issue": ["in", ["", None]]}
+	cats = {s.name: s.category for s in frappe.get_all("Projex Status", fields=["name", "category"])}
+	open_cats = {"backlog", "unstarted", "started"}
+
+	issues = frappe.get_all(
+		"Projex Issue", filters=base,
+		fields=["name", "issue_id", "title", "issue_type", "status", "priority", "due_date"],
+	)
+	by_type, by_priority, by_cat = {}, {}, {}
+	for it in issues:
+		t = it.issue_type or "Task"
+		by_type[t] = by_type.get(t, 0) + 1
+		by_priority[it.priority or "None"] = by_priority.get(it.priority or "None", 0) + 1
+		cat = cats.get(it.status) or "unstarted"
+		by_cat[cat] = by_cat.get(cat, 0) + 1
+
+	# open bugs spotlight
+	open_bugs = [
+		{"name": it.name, "issue_id": it.issue_id, "title": it.title, "priority": it.priority,
+		 "due_date": str(it.due_date) if it.due_date else None}
+		for it in issues
+		if (it.issue_type == "Bug") and (cats.get(it.status) in open_cats)
+	]
+
+	# per-assignee open load
+	assignee_rows = frappe.get_all(
+		"Projex Issue Assignee", filters={"parent": ["in", [i.name for i in issues] or [""]]},
+		fields=["parent", "user"],
+	)
+	open_names = {i.name for i in issues if cats.get(i.status) in open_cats}
+	load = {}
+	for r in assignee_rows:
+		if r.parent in open_names:
+			load[r.user] = load.get(r.user, 0) + 1
+	workload = sorted(
+		[{"user": u, "name_full": frappe.db.get_value("User", u, "full_name") or u, "open": n}
+		 for u, n in load.items()],
+		key=lambda x: -x["open"],
+	)[:8]
+
+	PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "None"]
+	return {
+		"total": len(issues),
+		"by_type": [{"label": k, "count": v} for k, v in sorted(by_type.items(), key=lambda x: -x[1])],
+		"by_priority": [{"label": p, "count": by_priority.get(p, 0)} for p in PRIORITY_ORDER],
+		"by_category": by_cat,
+		"open_bugs": sorted(open_bugs, key=lambda b: PRIORITY_ORDER.index(b["priority"]) if b["priority"] in PRIORITY_ORDER else 9),
+		"workload": workload,
+	}
+
+
+@frappe.whitelist()
+def get_sprint_review(project, cycle=None):
+	"""Sprint review: scope, completed vs. carryover, and points for a cycle."""
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	cycles = frappe.get_all(
+		"Projex Cycle", filters={"project": project},
+		fields=["name", "cycle_name", "state", "start_date", "end_date"], order_by="start_date desc",
+	)
+	if not cycle:
+		active = next((c for c in cycles if c.state == "Active"), None)
+		cycle = (active or (cycles[0] if cycles else None))
+		cycle = cycle.name if cycle else None
+	if not cycle:
+		return {"cycle": None, "cycles": cycles}
+
+	c = next((x for x in cycles if x.name == cycle), None)
+	completed_statuses = {
+		s.name for s in frappe.get_all(
+			"Projex Status", filters={"category": ["in", ["completed", "cancelled"]]}, fields=["name"]
+		)
+	}
+	issues = frappe.get_all(
+		"Projex Issue", filters={"project": project, "cycle": cycle},
+		fields=["name", "issue_id", "title", "status", "priority", "issue_type", "estimate"],
+		order_by="rank asc",
+	)
+	for it in issues:
+		it["done"] = it.status in completed_statuses
+	done = [i for i in issues if i["done"]]
+	carry = [i for i in issues if not i["done"]]
+	pts = lambda rows: sum((r.estimate or 0) for r in rows)
+	return {
+		"cycle": cycle,
+		"cycle_name": c.cycle_name if c else None,
+		"state": c.state if c else None,
+		"start_date": str(c.start_date) if c and c.start_date else None,
+		"end_date": str(c.end_date) if c and c.end_date else None,
+		"cycles": cycles,
+		"total_issues": len(issues),
+		"done_issues": len(done),
+		"total_points": pts(issues),
+		"done_points": pts(done),
+		"completed": done,
+		"carryover": carry,
+	}
+
+
+# --------------------------------------------------------------------------- #
+# Project docs (PRD / BRD / Standup MOM / Change requests / notes)
+# --------------------------------------------------------------------------- #
+@frappe.whitelist()
+def get_docs(project, doc_type=None):
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	filters = {"project": project}
+	if doc_type:
+		filters["doc_type"] = doc_type
+	rows = frappe.get_all(
+		"Projex Doc", filters=filters,
+		fields=["name", "title", "doc_type", "doc_date", "owner", "modified"],
+		order_by="modified desc",
+	)
+	for r in rows:
+		r["owner_name"] = frappe.db.get_value("User", r.owner, "full_name") or r.owner
+	return rows
+
+
+@frappe.whitelist()
+def get_doc_detail(name):
+	doc = frappe.get_doc("Projex Doc", name)
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(doc.project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	return {
+		"name": doc.name, "title": doc.title, "project": doc.project,
+		"doc_type": doc.doc_type, "doc_date": str(doc.doc_date) if doc.doc_date else None,
+		"content": doc.content, "owner": doc.owner,
+		"owner_name": frappe.db.get_value("User", doc.owner, "full_name") or doc.owner,
+		"modified": str(doc.modified),
+	}
+
+
+@frappe.whitelist()
+def create_doc(project, title, doc_type="Note", content=None, doc_date=None):
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc({
+		"doctype": "Projex Doc", "project": project, "title": title,
+		"doc_type": doc_type, "content": content, "doc_date": doc_date or None,
+	}).insert()
+	frappe.db.commit()
+	return {"name": doc.name}
+
+
+@frappe.whitelist()
+def update_doc(name, fields):
+	import json
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	doc = frappe.get_doc("Projex Doc", name)
+	for k in ("title", "doc_type", "content", "doc_date"):
+		if k in fields:
+			doc.set(k, fields[k] or None)
+	doc.save()
+	frappe.db.commit()
+	return {"name": doc.name, "modified": str(doc.modified)}
+
+
+@frappe.whitelist()
+def delete_doc_entry(name):
+	project = frappe.db.get_value("Projex Doc", name, "project")
+	if project and not _can_manage_project(project):
+		# allow the author to delete their own doc
+		if frappe.db.get_value("Projex Doc", name, "owner") != frappe.session.user:
+			frappe.throw("Not permitted", frappe.PermissionError)
+	frappe.delete_doc("Projex Doc", name, ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
 # --------------------------------------------------------------------------- #
 # Favorites / saved views / attachments / issue links
 # --------------------------------------------------------------------------- #
@@ -947,6 +1593,36 @@ def mark_notification_read(name=None, all=False):
 	notif.is_read = 1
 	notif.save(ignore_permissions=True)
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def get_notification_prefs():
+	"""Current user's email notification preferences (all-on by default)."""
+	from projex.notifications import get_preferences
+	return get_preferences(frappe.session.user)
+
+
+@frappe.whitelist()
+def set_notification_prefs(fields):
+	"""Upsert the current user's email notification preferences."""
+	import json
+	from projex.notifications import _DEFAULT_PREFS
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	user = frappe.session.user
+	name = frappe.db.exists("Projex Notification Preference", {"user": user})
+	doc = (
+		frappe.get_doc("Projex Notification Preference", name)
+		if name
+		else frappe.get_doc({"doctype": "Projex Notification Preference", "user": user})
+	)
+	for k in _DEFAULT_PREFS:
+		if k in fields:
+			doc.set(k, 1 if fields[k] else 0)
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	from projex.notifications import get_preferences
+	return get_preferences(user)
 
 
 @frappe.whitelist()

@@ -6,11 +6,16 @@ import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import { store } from '@/data/store'
 
-const props = defineProps({ open: Boolean, defaultProject: { type: String, default: '' } })
+const props = defineProps({
+	open: Boolean,
+	defaultProject: { type: String, default: '' },
+	defaultType: { type: String, default: 'Task' },
+})
 const emit = defineEmits(['close', 'created'])
 
 const title = ref('')
 const project = ref('')
+const issueType = ref('Task')
 const priority = ref('None')
 const assignees = ref([])
 const labels = ref([])
@@ -26,6 +31,7 @@ watch(
 	(v) => {
 		if (v) {
 			title.value = ''
+			issueType.value = props.defaultType || 'Task'
 			priority.value = 'None'
 			assignees.value = []
 			labels.value = []
@@ -49,6 +55,7 @@ const labelOptions = computed(() =>
 	(pickers.data?.labels || []).map((l) => ({ value: l.name, label: l.label_name, color: l.color })),
 )
 const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low', 'None'].map((p) => ({ value: p, label: p }))
+const TYPES = ['Task', 'Bug', 'Story', 'Epic'].map((t) => ({ value: t, label: t }))
 
 async function submit() {
 	if (!title.value.trim() || !project.value) return
@@ -56,6 +63,7 @@ async function submit() {
 		payload: JSON.stringify({
 			title: title.value.trim(),
 			project: project.value,
+			issue_type: issueType.value,
 			priority: priority.value,
 			assignees: assignees.value,
 			labels: labels.value,
@@ -71,7 +79,7 @@ async function submit() {
 
 <template>
 	<Dialog :model-value="open" @update:model-value="(v) => !v && emit('close')" :options="{ size: 'lg' }">
-		<template #body-title><h3 class="t-lg" style="font-weight: 600">New task</h3></template>
+		<template #body-title><h3 class="t-lg" style="font-weight: 600">New {{ issueType === 'Task' ? 'task' : issueType.toLowerCase() }}</h3></template>
 		<template #body-content>
 			<div class="flex col g-4" style="padding-top: 4px">
 				<FormControl
@@ -94,6 +102,10 @@ async function submit() {
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Project</span>
 						<FormControl v-model="project" type="select" size="sm" :options="projectOptions" />
+					</div>
+					<div class="pjx-fld">
+						<span class="pjx-fld__l">Type</span>
+						<FormControl v-model="issueType" type="select" size="sm" :options="TYPES" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Priority</span>

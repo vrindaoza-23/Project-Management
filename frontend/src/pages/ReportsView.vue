@@ -3,6 +3,10 @@ import { computed, watch } from 'vue'
 import { createResource } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import Donut from '@/components/Donut.vue'
+import BurndownChart from '@/components/BurndownChart.vue'
+import SprintReview from '@/components/SprintReview.vue'
+
+const emit = defineEmits(['open'])
 
 const props = defineProps({ projectKey: { type: String, required: true } })
 
@@ -28,6 +32,12 @@ function weekLabel(iso) {
 
 <template>
 	<div class="pjx-reports">
+		<div class="pjx-panel pjx-panel--wide" style="margin-bottom: 12px">
+			<BurndownChart :project-key="projectKey" />
+		</div>
+		<div class="pjx-panel pjx-panel--wide" style="margin-bottom: 12px">
+			<SprintReview :project-key="projectKey" @open="emit('open', $event)" />
+		</div>
 		<div class="pjx-rgrid">
 			<div class="pjx-panel">
 				<div class="pjx-panel__h">Status distribution</div>

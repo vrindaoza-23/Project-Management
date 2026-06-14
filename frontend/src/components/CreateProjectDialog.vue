@@ -15,6 +15,7 @@ const key = ref('')
 const icon = ref('folder')
 const color = ref('var(--blue-500)')
 const workspace = ref('')
+const team = ref('')
 const members = ref([])
 const error = ref('')
 const keyEdited = ref(false)
@@ -30,6 +31,7 @@ watch(
 			icon.value = 'folder'
 			color.value = 'var(--blue-500)'
 			workspace.value = store.workspaces[0]?.name || ''
+			team.value = ''
 			members.value = []
 			error.value = ''
 			keyEdited.value = false
@@ -46,6 +48,17 @@ const ICONS = ['folder', 'credit-card', 'sparkles', 'smartphone', 'megaphone', '
 const COLORS = ['var(--blue-500)', 'var(--violet-500)', 'var(--green-600)', 'var(--orange-500)', 'var(--teal-600)', 'var(--red-500)']
 
 const workspaceOptions = computed(() => store.workspaces.map((w) => ({ value: w.name, label: w.workspace_name })))
+// Teams available for the chosen workspace (optional grouping).
+const teamOptions = computed(() => [
+	{ value: '', label: 'No team' },
+	...store.teams
+		.filter((t) => !workspace.value || t.workspace === workspace.value)
+		.map((t) => ({ value: t.name, label: t.team_name })),
+])
+// Clear the team if it no longer belongs to the selected workspace.
+watch(workspace, () => {
+	if (team.value && !teamOptions.value.some((o) => o.value === team.value)) team.value = ''
+})
 const userOptions = computed(() => store.users.map((u) => ({ value: u.name, label: u.full_name || u.name })))
 
 async function submit() {
@@ -60,6 +73,7 @@ async function submit() {
 				icon: icon.value,
 				color: color.value,
 				workspace: workspace.value || null,
+				team: team.value || null,
 				members: members.value.map((u) => ({ user: u, role: 'Member' })),
 			}),
 		})
@@ -116,6 +130,15 @@ async function submit() {
 							:model-value="workspace"
 							placeholder="None"
 							@change="(v) => (workspace = v || '')"
+						/>
+					</div>
+					<div class="flex col g-1" style="min-width: 200px">
+						<span class="t-xs ink-5">Team</span>
+						<SelectField
+							:options="teamOptions"
+							:model-value="team"
+							placeholder="No team"
+							@change="(v) => (team = v || '')"
 						/>
 					</div>
 					<div class="flex col g-1" style="min-width: 200px">

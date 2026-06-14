@@ -39,18 +39,8 @@ class ProjexComment(Document):
 
 
 def _notify(user, ntype, actor, issue, snippet):
-	frappe.get_doc({
-		"doctype": "Projex Notification",
-		"user": user,
-		"notification_type": ntype,
-		"actor": actor,
-		"issue": issue,
-		"snippet": snippet,
-		"is_read": 0,
-	}).insert(ignore_permissions=True)
-	frappe.publish_realtime(
-		"projex:notification", {"user": user, "issue": issue, "type": ntype}, user=user
-	)
+	from projex.notifications import deliver
+	deliver(user, ntype, actor, issue, snippet)
 
 
 def get_permission_query_conditions(user=None):

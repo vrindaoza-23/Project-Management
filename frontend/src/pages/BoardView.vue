@@ -24,13 +24,32 @@ const columns = computed(() =>
 const updater = createResource({ url: 'projex.api.update_issue' })
 const reorder = createResource({ url: 'projex.api.reorder_issue' })
 
-function onDragStart(name) {
+function onDragStart(e, name) {
 	dragName.value = name
+	// Setting dataTransfer is required for drag to initiate in Safari/Firefox.
+	if (e && e.dataTransfer) {
+		e.dataTransfer.effectAllowed = 'move'
+		try {
+			e.dataTransfer.setData('text/plain', name)
+		} catch (_) {
+			/* some browsers throw if called outside dragstart — ignore */
+		}
+	}
 }
 
-async function onDrop(statusName) {
+function onDragEnd() {
+	dragName.value = null
 	overStatus.value = null
-	const name = dragName.value
+}
+
+function draggedName(e) {
+	return dragName.value || (e && e.dataTransfer ? e.dataTransfer.getData('text/plain') : null)
+}
+
+// Drop anywhere on a column: move the card to that column's status (any direction).
+async function onDrop(statusName, e) {
+	overStatus.value = null
+	const name = draggedName(e)
 	dragName.value = null
 	if (!name) return
 	const issue = props.issues.find((i) => i.name === name)
@@ -41,15 +60,15 @@ async function onDrop(statusName) {
 	try {
 		await updater.submit({ name, fields: JSON.stringify({ status: statusName }) })
 		emit('changed')
-	} catch (e) {
+	} catch (err) {
 		issue.status = prev // rollback
-		console.error('[projex] status update failed', e)
+		console.error('[projex] status update failed', err)
 	}
 }
 
-// Drop directly onto a card: reorder before it (and adopt its status).
-async function onCardDrop(targetIssue) {
-	const name = dragName.value
+// Drop directly onto a card: adopt its status and reorder before it.
+async function onCardDrop(targetIssue, e) {
+	const name = draggedName(e)
 	dragName.value = null
 	overStatus.value = null
 	if (!name || name === targetIssue.name) return
@@ -58,9 +77,16 @@ async function onCardDrop(targetIssue) {
 	const col = columns.value.find((c) => c.status.name === targetIssue.status)
 	const idx = col.items.findIndex((i) => i.name === targetIssue.name)
 	const after = idx > 0 ? col.items[idx - 1].name : null
+	const prev = moving.status
 	if (moving.status !== targetIssue.status) {
-		moving.status = targetIssue.status
-		await updater.submit({ name, fields: JSON.stringify({ status: targetIssue.status }) }).catch(() => {})
+		moving.status = targetIssue.status // optimistic
+		try {
+			await updater.submit({ name, fields: JSON.stringify({ status: targetIssue.status }) })
+		} catch (err) {
+			moving.status = prev
+			console.error('[projex] status update failed', err)
+			return
+		}
 	}
 	await reorder.submit({ issue: name, before: targetIssue.name, after }).catch(() => {})
 	emit('changed')
@@ -76,8 +102,9 @@ async function onCardDrop(targetIssue) {
 				class="pjx-col"
 				:class="{ 'is-over': overStatus === col.status.name }"
 				@dragover.prevent="overStatus = col.status.name"
-				@dragleave="overStatus = null"
-				@drop="onDrop(col.status.name)"
+				@dragenter.prevent="overStatus = col.status.name"
+				@dragleave.self="overStatus = null"
+				@drop.prevent="onDrop(col.status.name, $event)"
 			>
 				<div class="pjx-col__head">
 					<StatusDot :status="col.status" />
@@ -90,12 +117,13 @@ async function onCardDrop(targetIssue) {
 						:key="it.name"
 						:issue="it"
 						:presence="presence[it.name] || []"
-						@dragstart="onDragStart(it.name)"
-						@drop="onCardDrop(it)"
+						@dragstart="onDragStart($event, it.name)"
+						@dragend="onDragEnd"
+						@drop.prevent.stop="onCardDrop(it, $event)"
 						@dragover.prevent.stop
 						@open="emit('open', $event)"
 					/>
-					<div v-if="!col.items.length" class="pjx-col__empty">No tasks</div>
+					<div v-if="!col.items.length" class="pjx-col__empty">Drop tasks here</div>
 				</div>
 			</div>
 		</div>

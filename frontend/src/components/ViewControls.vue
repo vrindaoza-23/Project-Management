@@ -8,8 +8,35 @@ const props = defineProps({
 	statuses: { type: Array, default: () => [] },
 	state: { type: Object, required: true }, // { statusFilter:[], assigneeMe, sortBy, groupBy }
 	showGroup: { type: Boolean, default: true },
+	savedViews: { type: Array, default: () => [] }, // [{ name, view_name, view_type, config }]
 })
-const emit = defineEmits(['update'])
+const emit = defineEmits(['update', 'export', 'save-view', 'apply-view', 'delete-view'])
+
+// Build the Views dropdown: each saved view applies on click (trash deletes it),
+// plus a divider and "Save current view…".
+const viewOptions = computed(() => {
+	const apply = props.savedViews.map((v) => ({
+		label: v.view_name,
+		onClick: () => emit('apply-view', v),
+	}))
+	const remove = props.savedViews.map((v) => ({
+		label: 'Delete: ' + v.view_name,
+		icon: 'trash-2',
+		onClick: () => emit('delete-view', v),
+	}))
+	return [
+		{
+			label: 'Save current view…',
+			icon: 'plus',
+			onClick: () => {
+				const name = (window.prompt('Name this view') || '').trim()
+				if (name) emit('save-view', name)
+			},
+		},
+		...(apply.length ? [{ group: 'Saved', items: apply }] : []),
+		...(remove.length ? [{ group: 'Manage', items: remove }] : []),
+	]
+})
 
 const statusOptions = computed(() => props.statuses.map((s) => ({ value: s.name, label: s.status_name })))
 const SORTS = [
@@ -56,6 +83,13 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 			</button>
 		</div>
 		<div class="pjx-list__bar-right">
+			<Dropdown :options="viewOptions">
+				<Button variant="ghost" theme="gray">
+					<template #prefix><Icon name="bookmark" :size="14" /></template>
+					Views
+					<template #suffix><Icon name="chevron-down" :size="13" /></template>
+				</Button>
+			</Dropdown>
 			<Dropdown
 				v-if="showGroup"
 				:options="GROUPS.map((g) => ({ label: g.label, onClick: () => set({ groupBy: g.id }) }))"
@@ -71,6 +105,10 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 					<template #suffix><Icon name="chevron-down" :size="13" /></template>
 				</Button>
 			</Dropdown>
+			<Button variant="ghost" theme="gray" title="Export visible tasks to CSV" @click="emit('export')">
+				<template #prefix><Icon name="download" :size="14" /></template>
+				Export
+			</Button>
 		</div>
 	</div>
 </template>

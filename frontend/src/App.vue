@@ -1,5 +1,7 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { createResource } from 'frappe-ui'
 import AppSidebar from '@/components/AppSidebar.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import TaskDrawer from '@/components/TaskDrawer.vue'
@@ -7,7 +9,7 @@ import CreateIssueDialog from '@/components/CreateIssueDialog.vue'
 import CreateProjectDialog from '@/components/CreateProjectDialog.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import TweaksPanel from '@/components/TweaksPanel.vue'
-import { initStore } from '@/data/store'
+import { initStore, reloadBootstrap } from '@/data/store'
 import { ui, togglePalette, closePalette, closeDrawer, bumpRefresh, openCreate, closeCreate } from '@/data/ui'
 import { useTweaks } from '@/composables/useTweaks'
 import { useKeyboard } from '@/composables/useKeyboard'
@@ -16,6 +18,23 @@ const router = useRouter()
 const route = useRoute()
 
 initStore()
+
+// If the app was opened from an invite link (?invite=token), join the project
+// then strip the token from the URL.
+onMounted(async () => {
+	const params = new URLSearchParams(window.location.search)
+	const token = params.get('invite')
+	if (!token) return
+	try {
+		const res = await createResource({ url: 'projex.api.accept_invite' }).submit({ token })
+		reloadBootstrap()
+		if (res?.key) router.replace(`/projects/${res.key}`)
+		else router.replace('/')
+	} catch (e) {
+		window.alert(e?.messages?.[0] || 'This invite link is invalid or has expired.')
+		router.replace('/')
+	}
+})
 useTweaks()
 useKeyboard({
 	onPalette: togglePalette,
@@ -40,6 +59,7 @@ useKeyboard({
 		<CreateIssueDialog
 			:open="ui.createOpen"
 			:default-project="ui.createProject"
+			:default-type="ui.createType"
 			@close="closeCreate"
 			@created="bumpRefresh"
 		/>

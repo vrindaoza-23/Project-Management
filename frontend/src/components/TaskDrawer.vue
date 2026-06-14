@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { createResource, Dropdown, Button, Avatar, DatePicker } from 'frappe-ui'
+import { ref, computed, watch, nextTick } from 'vue'
+import { createResource, Dropdown, Button, Avatar, DatePicker, Checkbox } from 'frappe-ui'
 import Icon from './Icon.vue'
 import StatusDot from './StatusDot.vue'
 import PriorityBars from './PriorityBars.vue'
@@ -18,6 +18,8 @@ const emit = defineEmits(['close', 'changed'])
 
 const tab = ref('comments')
 const newComment = ref('')
+const editingDesc = ref(false)
+const descDraft = ref('')
 
 const detail = createResource({
 	url: 'projex.api.get_issue',
@@ -32,6 +34,7 @@ const pickers = createResource({ url: 'projex.api.get_pickers' })
 const reactor = createResource({ url: 'projex.api.toggle_reaction' })
 const timeLogs = createResource({ url: 'projex.api.get_issue_time_logs' })
 const attDelete = createResource({ url: 'projex.api.delete_attachment' })
+const checklistSaver = createResource({ url: 'projex.api.set_checklist' })
 const linkAdd = createResource({ url: 'projex.api.add_issue_link' })
 const linkRemove = createResource({ url: 'projex.api.remove_issue_link' })
 const projectIssues = createResource({ url: 'frappe.client.get_list' })
@@ -59,9 +62,50 @@ const statusMeta = computed(() => detail.data?.status_meta)
 const labels = computed(() => detail.data?.labels || [])
 const subtasks = computed(() => detail.data?.subtasks || [])
 const comments = computed(() => detail.data?.comments || [])
+
+// ---- checklist (in-issue, lighter than subtasks) ----
+const checklist = ref([])
+const newChecklist = ref('')
+watch(
+	() => detail.data?.checklist,
+	(items) => { checklist.value = (items || []).map((c) => ({ ...c })) },
+	{ immediate: true },
+)
+const checkDone = computed(() => checklist.value.filter((c) => c.done).length)
+
+async function persistChecklist() {
+	const items = checklist.value.map((c) => ({ title: c.title, done: c.done ? 1 : 0 }))
+	const res = await checklistSaver.submit({ issue: issue.value.name, items: JSON.stringify(items) })
+	checklist.value = (res.checklist || []).map((c) => ({ ...c }))
+}
+function addChecklistItem() {
+	const title = newChecklist.value.trim()
+	if (!title) return
+	checklist.value.push({ title, done: false })
+	newChecklist.value = ''
+	persistChecklist()
+}
+function toggleChecklistItem(item) {
+	item.done = !item.done // optimistic
+	persistChecklist()
+}
+function deleteChecklistItem(item) {
+	checklist.value = checklist.value.filter((c) => c !== item)
+	persistChecklist()
+}
 const subDone = computed(() => subtasks.value.filter((s) => s.done).length)
 
 const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low', 'None']
+const TYPES = ['Task', 'Bug', 'Story', 'Epic']
+const TYPE_ICON = { Task: 'square-check', Bug: 'bug', Story: 'bookmark', Epic: 'zap' }
+const typeOptions = computed(() => TYPES.map((t) => ({ label: t, onClick: () => changeField('issue_type', t) })))
+const RECURRENCE_OPTIONS = [
+	{ value: 'None', label: 'Never' },
+	{ value: 'Daily', label: 'Daily' },
+	{ value: 'Weekly', label: 'Weekly' },
+	{ value: 'Biweekly', label: 'Every 2 weeks' },
+	{ value: 'Monthly', label: 'Monthly' },
+]
 
 watch(
 	() => issue.value?.project,
@@ -139,6 +183,27 @@ async function changeField(field, value) {
 	}
 }
 
+function htmlToText(html) {
+	const tmp = document.createElement('div')
+	tmp.innerHTML = html || ''
+	return tmp.textContent || tmp.innerText || ''
+}
+function escapeHtml(s) {
+	return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+function startEditDesc() {
+	descDraft.value = htmlToText(issue.value?.description)
+	editingDesc.value = true
+}
+async function saveDesc() {
+	const text = descDraft.value.trim()
+	const html = text
+		? text.split(/\n/).map((l) => (l.trim() ? `<p>${escapeHtml(l)}</p>` : '<p><br></p>')).join('')
+		: ''
+	editingDesc.value = false
+	await changeField('description', html)
+}
+
 async function saveTitle(e) {
 	const title = e.target.value.trim()
 	if (!issue.value || !title || title === issue.value.title) return
@@ -173,6 +238,62 @@ async function postComment() {
 	newComment.value = ''
 	const res = await commenter.submit({ issue: issue.value.name, content: html })
 	comments.value.push(res)
+}
+
+// ---- @mention autocomplete -------------------------------------------------
+// Backend (Projex Comment controller) turns `@<email>` tokens into mention
+// notifications, so the picker inserts the user's id (their email in Frappe).
+const commentInput = ref(null)
+const mention = ref({ open: false, query: '', start: 0, active: 0 })
+
+const mentionPeople = computed(() => {
+	if (!mention.value.open) return []
+	const q = mention.value.query.toLowerCase()
+	const people = pickers.data?.users || store.users || []
+	return people
+		.filter((u) => !q || (u.full_name || u.name).toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
+		.slice(0, 6)
+})
+
+function onCommentInput(e) {
+	const el = e.target
+	const pos = el.selectionStart
+	const upto = el.value.slice(0, pos)
+	const m = upto.match(/@([\w.\-+@]*)$/) // open token: @ + word chars, no whitespace
+	if (m) {
+		mention.value = { open: true, query: m[1], start: pos - m[0].length, active: 0 }
+	} else {
+		mention.value.open = false
+	}
+}
+
+function mentionNav(dir) {
+	const n = mentionPeople.value.length
+	if (!n) return
+	mention.value.active = (mention.value.active + dir + n) % n
+}
+
+function pickMention(user) {
+	const el = commentInput.value
+	const before = newComment.value.slice(0, mention.value.start)
+	const after = newComment.value.slice(el ? el.selectionStart : newComment.value.length)
+	newComment.value = `${before}@${user.name} ${after}`
+	mention.value.open = false
+	nextTick(() => {
+		if (!el) return
+		const caret = (before + '@' + user.name + ' ').length
+		el.focus()
+		el.setSelectionRange(caret, caret)
+	})
+}
+
+// Enter selects the highlighted person while the menu is open (otherwise falls
+// through to a normal newline). Cmd+Enter still posts.
+function onCommentEnter(e) {
+	if (mention.value.open && mentionPeople.value.length) {
+		e.preventDefault()
+		pickMention(mentionPeople.value[mention.value.active])
+	}
 }
 
 const aiEnabled = computed(() => integration.data?.ai)
@@ -260,6 +381,14 @@ async function removeLink(name) {
 			<div v-if="issue" class="pjx-drawer__body">
 				<div class="pjx-drawer__main">
 					<div class="pjx-statusrow">
+						<Dropdown :options="typeOptions">
+							<Button variant="outline" theme="gray">
+								<span class="flex items-center g-2">
+									<Icon :name="TYPE_ICON[issue.issue_type || 'Task']" :size="13" />{{ issue.issue_type || 'Task' }}
+								</span>
+								<template #suffix><Icon name="chevron-down" :size="14" /></template>
+							</Button>
+						</Dropdown>
 						<Dropdown :options="statusOptions">
 							<Button variant="outline" theme="gray">
 								<span class="flex items-center g-2">
@@ -278,11 +407,35 @@ async function removeLink(name) {
 						</Dropdown>
 					</div>
 
-					<input class="pjx-dtitle" :value="issue.title" @blur="saveTitle" />
+					<input class="pjx-dtitle" :value="issue.title" placeholder="Issue title" @blur="saveTitle" />
 
-					<!-- eslint-disable-next-line vue/no-v-html -->
-					<div v-if="issue.description" class="pjx-desc" v-html="issue.description" />
-					<div v-else class="pjx-desc pjx-descempty">No description yet.</div>
+					<div class="pjx-descwrap">
+						<div v-if="editingDesc" class="pjx-descedit">
+							<textarea
+								v-model="descDraft"
+								class="pjx-descarea"
+								rows="6"
+								placeholder="Add a description…"
+								data-gramm="false"
+								@keydown.meta.enter="saveDesc"
+							/>
+							<div class="flex g-2" style="margin-top: 6px">
+								<Button variant="solid" theme="gray" @click="saveDesc">Save</Button>
+								<Button variant="subtle" theme="gray" @click="editingDesc = false">Cancel</Button>
+							</div>
+						</div>
+						<template v-else>
+							<div class="pjx-desc__head">
+								<span class="t-xs ink-5" style="font-weight: 500">Description</span>
+								<button class="pjx-desc__edit" @click="startEditDesc">
+									<Icon name="pencil" :size="12" /> Edit
+								</button>
+							</div>
+							<!-- eslint-disable-next-line vue/no-v-html -->
+							<div v-if="issue.description" class="pjx-desc" v-html="issue.description" @click="startEditDesc" />
+							<div v-else class="pjx-desc pjx-descempty" @click="startEditDesc">Add a description…</div>
+						</template>
+					</div>
 
 					<div v-if="subtasks.length" class="pjx-subs">
 						<div class="pjx-subs__head">
@@ -295,10 +448,35 @@ async function removeLink(name) {
 							/></span>
 						</div>
 						<div v-for="st in subtasks" :key="st.name" class="pjx-subs__row">
-							<input type="checkbox" :checked="st.done" @change="toggleSubtask(st)" />
+							<Checkbox :model-value="st.done" @update:model-value="toggleSubtask(st)" />
 							<span class="pjx-subs__title" :class="{ 'is-done': st.done }">{{ st.title }}</span>
 							<span class="pjx-subs__id">{{ st.issue_id }}</span>
 						</div>
+					</div>
+
+					<div class="pjx-subs">
+						<div class="pjx-subs__head">
+							<span style="font-weight: 500">Checklist</span>
+							<span v-if="checklist.length" class="pjx-subs__count">{{ checkDone }}/{{ checklist.length }}</span>
+							<span v-if="checklist.length" class="pjx-subs__bar"
+								><span
+									class="pjx-subs__fill"
+									:style="{ width: (checkDone / checklist.length) * 100 + '%' }"
+							/></span>
+						</div>
+						<div v-for="(ck, i) in checklist" :key="ck.name || i" class="pjx-subs__row pjx-check__row">
+							<Checkbox :model-value="ck.done" @update:model-value="toggleChecklistItem(ck)" />
+							<span class="pjx-subs__title" :class="{ 'is-done': ck.done }">{{ ck.title }}</span>
+							<button class="pjx-check__del" title="Remove" @click="deleteChecklistItem(ck)">
+								<Icon name="x" :size="13" />
+							</button>
+						</div>
+						<input
+							v-model="newChecklist"
+							class="pjx-check__add"
+							placeholder="Add checklist item…"
+							@keydown.enter="addChecklistItem"
+						/>
 					</div>
 
 					<div class="tabs">
@@ -337,14 +515,33 @@ async function removeLink(name) {
 						</div>
 						<div v-if="!comments.length" class="pjx-inbox__empty">No comments yet — start the thread.</div>
 						<div class="pjx-commentbox">
-							<div class="pjx-commentbox__field">
+							<div class="pjx-commentbox__field" style="position: relative">
 								<textarea
+									ref="commentInput"
 									v-model="newComment"
 									class="pjx-commentbox__input"
-									placeholder="Leave a comment…"
+									placeholder="Leave a comment… use @ to mention"
 									style="width: 100%; border: 0; outline: 0; resize: vertical; background: transparent; font-family: var(--font-sans)"
+									@input="onCommentInput"
 									@keydown.meta.enter="postComment"
+									@keydown.enter="onCommentEnter"
+									@keydown.down.prevent="mention.open && mentionNav(1)"
+									@keydown.up.prevent="mention.open && mentionNav(-1)"
+									@keydown.esc="mention.open = false"
 								/>
+								<div v-if="mention.open && mentionPeople.length" class="pjx-mentions">
+									<button
+										v-for="(u, idx) in mentionPeople"
+										:key="u.name"
+										class="pjx-mentions__item"
+										:class="{ 'is-active': idx === mention.active }"
+										@mousedown.prevent="pickMention(u)"
+									>
+										<Avatar :label="u.full_name || u.name" :image="u.user_image" size="sm" />
+										<span class="pjx-mentions__name">{{ u.full_name || u.name }}</span>
+										<span class="pjx-mentions__email">{{ u.name }}</span>
+									</button>
+								</div>
 								<div class="pjx-commentbox__foot">
 									<span style="flex: 1" />
 									<Button variant="solid" theme="gray" @click="postComment">Comment</Button>
@@ -471,6 +668,16 @@ async function removeLink(name) {
 						</div>
 					</div>
 
+					<div class="pjx-field">
+						<div class="pjx-field__lbl">Repeat</div>
+						<SelectField
+							:options="RECURRENCE_OPTIONS"
+							:model-value="issue.recurrence || 'None'"
+							placeholder="Never"
+							@change="(v) => changeField('recurrence', v || 'None')"
+						/>
+					</div>
+
 					<div v-if="integration.data?.timesheet" class="pjx-field">
 						<div class="pjx-field__lbl">Time (ERPNext)</div>
 						<div class="pjx-field__val flex col" style="align-items: flex-start; gap: 4px">
@@ -515,6 +722,81 @@ async function removeLink(name) {
 </template>
 
 <style scoped>
+.pjx-check__row {
+	align-items: center;
+}
+.pjx-check__del {
+	margin-left: auto;
+	border: 0;
+	background: transparent;
+	color: var(--ink-gray-4);
+	cursor: pointer;
+	opacity: 0;
+	display: inline-flex;
+	padding: 2px;
+	border-radius: 4px;
+}
+.pjx-check__row:hover .pjx-check__del {
+	opacity: 1;
+}
+.pjx-check__del:hover {
+	color: var(--ink-gray-7);
+	background: var(--surface-gray-2);
+}
+.pjx-check__add {
+	width: 100%;
+	margin-top: 4px;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	font-size: 13px;
+	color: var(--ink-gray-8);
+	font-family: var(--font-sans);
+	padding: 4px 2px;
+}
+.pjx-check__add::placeholder {
+	color: var(--ink-gray-4);
+}
+.pjx-mentions {
+	position: absolute;
+	left: 0;
+	bottom: calc(100% + 4px);
+	z-index: 20;
+	width: 260px;
+	max-height: 240px;
+	overflow-y: auto;
+	background: var(--surface-white);
+	border: 1px solid var(--outline-gray-2);
+	border-radius: 8px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	padding: 4px;
+}
+.pjx-mentions__item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 5px 8px;
+	border: 0;
+	border-radius: 6px;
+	background: transparent;
+	cursor: pointer;
+	text-align: left;
+}
+.pjx-mentions__item:hover,
+.pjx-mentions__item.is-active {
+	background: var(--surface-gray-2);
+}
+.pjx-mentions__name {
+	font-size: 13px;
+	color: var(--ink-gray-8);
+	font-weight: 500;
+}
+.pjx-mentions__email {
+	font-size: 11px;
+	color: var(--ink-gray-5);
+	margin-left: auto;
+}
 .pjx-inlineinput {
 	border: 1px solid transparent;
 	background: transparent;
@@ -530,6 +812,57 @@ async function removeLink(name) {
 .pjx-inlineinput:focus {
 	outline: none;
 	background: var(--surface-white);
+	border-color: var(--outline-gray-3);
+}
+.pjx-descwrap {
+	margin: 10px 0 4px;
+}
+.pjx-desc__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 4px;
+}
+.pjx-desc__edit {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	border: 0;
+	background: transparent;
+	cursor: pointer;
+	color: var(--ink-gray-5);
+	font-size: 12px;
+	border-radius: 5px;
+	padding: 2px 6px;
+}
+.pjx-desc__edit:hover {
+	background: var(--surface-gray-2);
+	color: var(--ink-gray-8);
+}
+.pjx-desc {
+	cursor: text;
+	border-radius: 8px;
+}
+.pjx-desc:hover {
+	background: var(--surface-gray-1);
+}
+.pjx-descempty {
+	color: var(--ink-gray-4);
+}
+.pjx-descarea {
+	width: 100%;
+	border: 1px solid var(--outline-gray-2);
+	border-radius: 8px;
+	padding: 10px 12px;
+	font-size: 13px;
+	line-height: 1.55;
+	color: var(--ink-gray-8);
+	font-family: var(--font-sans);
+	resize: vertical;
+	background: var(--surface-white);
+}
+.pjx-descarea:focus {
+	outline: none;
 	border-color: var(--outline-gray-3);
 }
 .pjx-upload {

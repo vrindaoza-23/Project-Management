@@ -9,13 +9,15 @@
   "project_name",
   "key",
   "workspace",
+  "team",
   "icon",
   "color",
   "status",
   "lead",
   "description",
   "members",
-  "issue_counter"
+  "issue_counter",
+  "is_archived"
  ],
  "fields": [
   {
@@ -86,6 +88,18 @@
    "fieldtype": "Int",
    "hidden": 1,
    "label": "Issue counter"
+  },
+  {
+   "fieldname": "is_archived",
+   "fieldtype": "Check",
+   "label": "Archived",
+   "default": "0"
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Link",
+   "label": "Team",
+   "options": "Projex Team"
   }
  ],
  "grid_page_length": 50,

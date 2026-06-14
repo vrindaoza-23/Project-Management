@@ -53,6 +53,7 @@ class ProjexIssue(Document):
 				self._notify_status_change()
 				label = frappe.db.get_value("Projex Status", self.status, "status_name") or self.status
 				activity.log(self.project, self.name, "changed status", f"→ {label}")
+				self._maybe_spawn_recurrence(before)
 			if before.priority != self.priority:
 				activity.log(self.project, self.name, "changed priority", f"→ {self.priority}")
 			if before.title != self.title:
@@ -86,6 +87,38 @@ class ProjexIssue(Document):
 					issue=self.name, snippet=f"moved to {status_label}",
 				)
 
+	def _maybe_spawn_recurrence(self, before):
+		"""When a recurring issue is completed, create its next occurrence and
+		hand the recurrence baton to that new instance (so the finished one is
+		left as history and never spawns twice)."""
+		recurrence = (self.recurrence or "None")
+		if recurrence == "None":
+			return
+		new_cat = frappe.db.get_value("Projex Status", self.status, "category")
+		old_cat = frappe.db.get_value("Projex Status", before.status, "category") if before.status else None
+		if new_cat not in ("completed", "cancelled") or old_cat in ("completed", "cancelled"):
+			return
+
+		deltas = {"Daily": {"days": 1}, "Weekly": {"days": 7},
+				  "Biweekly": {"days": 14}, "Monthly": {"months": 1}}
+		base = frappe.utils.getdate(self.due_date) if self.due_date else frappe.utils.getdate()
+		next_due = frappe.utils.add_to_date(base, **deltas[recurrence])
+
+		next_status = _default_status_for(self.project)
+		clone = frappe.get_doc({
+			"doctype": "Projex Issue", "project": self.project, "workspace": self.workspace,
+			"title": self.title, "description": self.description, "priority": self.priority,
+			"issue_type": self.issue_type, "estimate": self.estimate,
+			"due_date": next_due, "status": next_status, "cycle": self.cycle,
+			"recurrence": recurrence,
+			"assignees": [{"user": a.user} for a in (self.assignees or [])],
+			"labels": [{"label": l.label} for l in (self.labels or [])],
+		})
+		clone.insert(ignore_permissions=True)
+		# Stop the finished issue from recurring again; the clone carries it on.
+		self.db_set("recurrence", "None")
+		activity.log(self.project, clone.name, "recurred", f"from {self.name}")
+
 
 def _default_status_for(project):
 	"""First 'unstarted' status scoped to the project, else a global default."""
@@ -110,19 +143,8 @@ def _next_rank(project):
 
 
 def _create_notification(user, notification_type, actor, issue, snippet):
-	frappe.get_doc({
-		"doctype": "Projex Notification",
-		"user": user,
-		"notification_type": notification_type,
-		"actor": actor,
-		"issue": issue,
-		"snippet": snippet,
-		"is_read": 0,
-	}).insert(ignore_permissions=True)
-	frappe.publish_realtime(
-		"projex:notification", {"user": user, "issue": issue, "type": notification_type},
-		user=user,
-	)
+	from projex.notifications import deliver
+	deliver(user, notification_type, actor, issue, snippet)
 
 
 # ---- row-level permission scoping (registered in hooks.py) ------------------

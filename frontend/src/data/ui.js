@@ -7,6 +7,7 @@ export const ui = reactive({
 	refreshTick: 0, // bump to ask the active board to reload
 	createOpen: false, // create-issue dialog
 	createProject: '',
+	createType: 'Task', // default issue type for the create dialog
 	createProjectOpen: false, // create-project dialog
 	createWorkspaceOpen: false, // create-workspace dialog
 	settingsProject: null, // project key when settings dialog is open
@@ -17,9 +18,13 @@ export function bumpRefresh() {
 	ui.refreshTick++
 }
 
-export function openCreate(defaultProject = '') {
+export function openCreate(defaultProject = '', type = 'Task') {
 	ui.createProject = defaultProject
+	ui.createType = type
 	ui.createOpen = true
+}
+export function openReportBug(defaultProject = '') {
+	openCreate(defaultProject, 'Bug')
 }
 export function closeCreate() {
 	ui.createOpen = false

@@ -1,21 +1,33 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, reactive } from 'vue'
+import { useRouter } from 'vue-router'
 import { createResource } from 'frappe-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import ViewControls from '@/components/ViewControls.vue'
 import SummaryView from './SummaryView.vue'
 import ListView from './ListView.vue'
+import BacklogView from './BacklogView.vue'
 import BoardView from './BoardView.vue'
 import GanttView from './GanttView.vue'
 import CalendarView from './CalendarView.vue'
 import ReportsView from './ReportsView.vue'
+import DashboardView from './DashboardView.vue'
+import DocsView from './DocsView.vue'
+import ChangeLogView from './ChangeLogView.vue'
 import ProjectSettingsDialog from '@/components/ProjectSettingsDialog.vue'
 import { store, projectByKey } from '@/data/store'
 import { openPalette, openDrawer, openCreate, ui } from '@/data/ui'
 import { onRealtime, joinProjectRoom } from '@/socket'
 import { tweaks } from '@/composables/useTweaks'
+import { exportIssuesCsv } from '@/utils/csv'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
+const router = useRouter()
+
+function onProjectDeleted() {
+	settingsOpen.value = false
+	router.push('/')
+}
 
 const activeTab = ref('summary')
 const settingsOpen = ref(false)
@@ -24,10 +36,14 @@ const integration = createResource({ url: 'projex.api.integration_status', auto:
 const TABS = [
 	{ id: 'summary', label: 'Summary' },
 	{ id: 'list', label: 'List' },
+	{ id: 'backlog', label: 'Backlog' },
 	{ id: 'board', label: 'Board' },
 	{ id: 'calendar', label: 'Calendar' },
 	{ id: 'gantt', label: 'Gantt' },
+	{ id: 'dashboard', label: 'Dashboard' },
 	{ id: 'reports', label: 'Reports' },
+	{ id: 'docs', label: 'Docs' },
+	{ id: 'activity', label: 'Activity' },
 ]
 const SIMPLE_TABS = ['summary', 'reports']
 
@@ -39,7 +55,47 @@ const board = createResource({
 	auto: true,
 })
 
-watch(() => props.projectKey, () => board.reload())
+// ---- saved views (backend: save_view / get_views / delete_view) ----
+const views = createResource({
+	url: 'projex.api.get_views',
+	makeParams: () => ({ project: props.projectKey }),
+	auto: true,
+})
+const viewSaver = createResource({ url: 'projex.api.save_view' })
+const viewDeleter = createResource({ url: 'projex.api.delete_view' })
+const bulkUpdater = createResource({ url: 'projex.api.bulk_update_issues' })
+const bulkDeleter = createResource({ url: 'projex.api.bulk_delete_issues' })
+
+async function bulkUpdate({ names, fields }) {
+	await bulkUpdater.submit({ names: JSON.stringify(names), fields: JSON.stringify(fields) })
+	board.reload()
+}
+async function bulkDelete({ names }) {
+	await bulkDeleter.submit({ names: JSON.stringify(names) })
+	board.reload()
+}
+
+async function saveCurrentView(name) {
+	await viewSaver.submit({
+		project: props.projectKey,
+		view_name: name,
+		view_type: activeTab.value,
+		config: JSON.stringify({ ...view }),
+	})
+	views.reload()
+}
+function applyView(v) {
+	let cfg = {}
+	try { cfg = JSON.parse(v.config || '{}') } catch (e) { cfg = {} }
+	Object.assign(view, { statusFilter: [], assigneeMe: false, sortBy: 'rank', groupBy: 'status' }, cfg)
+	if (v.view_type) activeTab.value = v.view_type
+}
+async function deleteView(v) {
+	await viewDeleter.submit({ name: v.name })
+	views.reload()
+}
+
+watch(() => props.projectKey, () => { board.reload(); views.reload() })
 watch(() => ui.refreshTick, () => board.reload())
 
 // ---- realtime ----
@@ -111,7 +167,12 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			:statuses="board.data?.statuses || []"
 			:state="view"
 			:show-group="activeTab === 'list'"
+			:saved-views="views.data || []"
 			@update="Object.assign(view, $event)"
+			@export="exportIssuesCsv(viewIssues, board.data?.statuses || [], projectKey)"
+			@save-view="saveCurrentView"
+			@apply-view="applyView"
+			@delete-view="deleteView"
 		/>
 		<div
 			v-if="board.data?.truncated && (activeTab === 'list' || activeTab === 'board')"
@@ -131,6 +192,16 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 				:loading="board.loading"
 				@created="board.reload()"
 				@open="openDrawer"
+				@bulk-update="bulkUpdate"
+				@bulk-delete="bulkDelete"
+			/>
+			<BacklogView
+				v-else-if="activeTab === 'backlog'"
+				:project-key="projectKey"
+				:issues="board.data?.issues || []"
+				:statuses="board.data?.statuses || []"
+				@changed="board.reload()"
+				@open="openDrawer"
 			/>
 			<BoardView
 				v-else-if="activeTab === 'board'"
@@ -146,7 +217,10 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 				:statuses="board.data?.statuses || []"
 				@open="openDrawer"
 			/>
-			<ReportsView v-else-if="activeTab === 'reports'" :project-key="projectKey" />
+			<DashboardView v-else-if="activeTab === 'dashboard'" :project-key="projectKey" @open="openDrawer" />
+			<ReportsView v-else-if="activeTab === 'reports'" :project-key="projectKey" @open="openDrawer" />
+			<DocsView v-else-if="activeTab === 'docs'" :project-key="projectKey" />
+			<ChangeLogView v-else-if="activeTab === 'activity'" :project-key="projectKey" @open="openDrawer" />
 			<GanttView v-else :project-key="projectKey" @open="openDrawer" />
 		</div>
 		<ProjectSettingsDialog
@@ -154,6 +228,7 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			:project="projectKey"
 			@close="settingsOpen = false"
 			@changed="board.reload()"
+			@deleted="onProjectDeleted"
 		/>
 	</div>
 </template>

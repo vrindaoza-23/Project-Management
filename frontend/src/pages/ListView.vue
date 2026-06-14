@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { Dropdown, Button } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
@@ -17,11 +18,48 @@ const props = defineProps({
 	presence: { type: Object, default: () => ({}) },
 	loading: { type: Boolean, default: false },
 })
-const emit = defineEmits(['open', 'created'])
+const emit = defineEmits(['open', 'created', 'bulk-update', 'bulk-delete'])
 
 const statusById = computed(() => Object.fromEntries(props.statuses.map((s) => [s.name, s])))
 
 const PRIORITY_ORDER = ['Urgent', 'High', 'Medium', 'Low', 'None']
+
+// ---- multi-select / bulk actions ----
+const selected = ref(new Set())
+// Drop ids that have scrolled out of the current result set.
+watch(
+	() => props.issues,
+	(rows) => {
+		const live = new Set(rows.map((r) => r.name))
+		selected.value.forEach((id) => { if (!live.has(id)) selected.value.delete(id) })
+		selected.value = new Set(selected.value)
+	},
+)
+const selectedCount = computed(() => selected.value.size)
+const allSelected = computed(() => props.issues.length > 0 && selected.value.size === props.issues.length)
+function isSelected(name) { return selected.value.has(name) }
+function toggleRow(name) {
+	const s = new Set(selected.value)
+	s.has(name) ? s.delete(name) : s.add(name)
+	selected.value = s
+}
+function toggleAll() {
+	selected.value = allSelected.value ? new Set() : new Set(props.issues.map((i) => i.name))
+}
+function clearSelection() { selected.value = new Set() }
+function names() { return [...selected.value] }
+function bulkStatus(s) { emit('bulk-update', { names: names(), fields: { status: s.name } }); clearSelection() }
+function bulkPriority(p) { emit('bulk-update', { names: names(), fields: { priority: p } }); clearSelection() }
+function bulkDelete() {
+	if (window.confirm(`Delete ${selectedCount.value} task(s)? This cannot be undone.`)) {
+		emit('bulk-delete', { names: names() })
+		clearSelection()
+	}
+}
+const statusActions = computed(() =>
+	props.statuses.map((s) => ({ label: s.status_name, onClick: () => bulkStatus(s) })),
+)
+const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bulkPriority(p) }))
 
 // Group issues by the active groupBy; hide empty groups.
 const groups = computed(() => {
@@ -46,7 +84,9 @@ const groups = computed(() => {
 		<QuickAdd :project-key="projectKey" @created="emit('created')" />
 
 		<div class="pjx-list__head">
-			<span></span>
+			<span class="pjx-lead"
+				><input type="checkbox" class="pjx-check is-on" :checked="allSelected" @change="toggleAll"
+			/></span>
 			<span>Task</span>
 			<span>Labels</span>
 			<span class="r">Pts</span>
@@ -73,8 +113,24 @@ const groups = computed(() => {
 					<span class="pjx-grouphead__count">{{ g.items.length }}</span>
 				</div>
 
-				<div v-for="it in g.items" :key="it.name" class="pjx-row" @click="emit('open', it.name)">
-					<span class="pjx-cell"><PriorityBars :priority="it.priority" /></span>
+				<div
+						v-for="it in g.items"
+						:key="it.name"
+						class="pjx-row"
+						:class="{ 'is-selected': isSelected(it.name) }"
+						@click="emit('open', it.name)"
+					>
+					<span class="pjx-cell pjx-lead">
+						<input
+							type="checkbox"
+							class="pjx-check"
+							:class="{ 'is-on': isSelected(it.name) }"
+							:checked="isSelected(it.name)"
+							@click.stop
+							@change="toggleRow(it.name)"
+						/>
+						<span class="pjx-leadprio"><PriorityBars :priority="it.priority" /></span>
+					</span>
 					<span class="pjx-cell pjx-titlecell">
 						<StatusDot :status="statusById[it.status]" />
 						<span class="pjx-id">{{ it.issue_id }}</span>
@@ -115,5 +171,94 @@ const groups = computed(() => {
 				<div class="t-sm ink-4">Create one above to get started.</div>
 			</div>
 		</template>
+
+		<Transition name="pjx-bulkbar">
+			<div v-if="selectedCount" class="pjx-bulkbar">
+				<span class="pjx-bulkbar__count">{{ selectedCount }} selected</span>
+				<Dropdown :options="statusActions">
+					<Button variant="ghost" theme="gray">
+						<template #prefix><Icon name="circle-dot" :size="14" /></template>
+						Status
+					</Button>
+				</Dropdown>
+				<Dropdown :options="priorityActions">
+					<Button variant="ghost" theme="gray">
+						<template #prefix><Icon name="bar-chart-3" :size="14" /></template>
+						Priority
+					</Button>
+				</Dropdown>
+				<Button variant="ghost" theme="gray" @click="bulkDelete">
+					<template #prefix><Icon name="trash-2" :size="14" /></template>
+					Delete
+				</Button>
+				<span class="pjx-bulkbar__sep" />
+				<Button variant="ghost" theme="gray" @click="clearSelection">Clear</Button>
+			</div>
+		</Transition>
 	</div>
 </template>
+
+<style scoped>
+/* Leading cell: priority bars by default, checkbox on hover or when selected. */
+.pjx-lead {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+.pjx-check {
+	cursor: pointer;
+	accent-color: var(--surface-gray-7);
+}
+.pjx-lead .pjx-check {
+	display: none;
+}
+.pjx-row:hover .pjx-lead .pjx-check,
+.pjx-lead .pjx-check.is-on {
+	display: inline-block;
+}
+.pjx-row:hover .pjx-lead .pjx-leadprio,
+.pjx-check.is-on + .pjx-leadprio {
+	display: none;
+}
+.pjx-row.is-selected {
+	background: var(--surface-gray-2);
+}
+
+/* Floating bulk action bar */
+.pjx-bulkbar {
+	position: sticky;
+	bottom: 16px;
+	z-index: 30;
+	margin: 16px auto 0;
+	width: fit-content;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding: 6px 10px;
+	background: var(--surface-white);
+	border: 1px solid var(--outline-gray-2);
+	border-radius: 10px;
+	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
+}
+.pjx-bulkbar__count {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ink-gray-7);
+	padding: 0 8px;
+}
+.pjx-bulkbar__sep {
+	width: 1px;
+	height: 18px;
+	background: var(--outline-gray-2);
+	margin: 0 2px;
+}
+.pjx-bulkbar-enter-active,
+.pjx-bulkbar-leave-active {
+	transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.pjx-bulkbar-enter-from,
+.pjx-bulkbar-leave-to {
+	opacity: 0;
+	transform: translateY(8px);
+}
+</style>

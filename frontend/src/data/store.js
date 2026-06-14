@@ -6,7 +6,9 @@ export const store = reactive({
 	user: null,
 	projects: [],
 	workspaces: [],
+	teams: [],
 	users: [],
+	favorites: [],
 	counts: { inbox: 0 },
 	loaded: false,
 })
@@ -22,7 +24,9 @@ export function initStore() {
 			store.user = data.user
 			store.projects = data.projects || []
 			store.workspaces = data.workspaces || []
+			store.teams = data.teams || []
 			store.users = data.users || []
+			store.favorites = data.favorites || []
 			store.counts = data.counts || { inbox: 0 }
 			store.loaded = true
 		},

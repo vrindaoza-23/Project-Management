@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { createResource, Avatar, Button } from 'frappe-ui'
+import { createResource, Avatar, Button, Dialog, Checkbox } from 'frappe-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
@@ -31,6 +31,27 @@ const inbox = createResource({
 	},
 })
 const marker = createResource({ url: 'projex.api.mark_notification_read' })
+
+// ---- email notification preferences ----
+const prefsOpen = ref(false)
+const prefs = ref({})
+const prefsResource = createResource({
+	url: 'projex.api.get_notification_prefs',
+	auto: true,
+	onSuccess(d) { prefs.value = { ...d } },
+})
+const prefsSaver = createResource({ url: 'projex.api.set_notification_prefs' })
+const PREF_ROWS = [
+	{ key: 'email_mentions', label: 'When someone @mentions me' },
+	{ key: 'email_assigned', label: 'When I’m assigned to an issue' },
+	{ key: 'email_comments', label: 'New comments on my issues' },
+	{ key: 'email_status', label: 'Status changes on my issues' },
+]
+async function savePrefs() {
+	const d = await prefsSaver.submit({ fields: JSON.stringify(prefs.value) })
+	prefs.value = { ...d }
+	prefsOpen.value = false
+}
 const detail = createResource({ url: 'projex.api.get_issue' })
 const commenter = createResource({ url: 'projex.api.add_comment' })
 
@@ -80,6 +101,9 @@ async function sendReply() {
 							{{ f }}
 						</button>
 						<span style="flex: 1" />
+						<Button variant="ghost" theme="gray" title="Email notifications" @click="prefsOpen = true">
+							<template #icon><Icon name="bell" :size="15" /></template>
+						</Button>
 						<Button variant="ghost" theme="gray" title="Mark all read" @click="markAll">
 							<template #icon><Icon name="check-check" :size="15" /></template>
 						</Button>
@@ -158,5 +182,51 @@ async function sendReply() {
 				</div>
 			</div>
 		</div>
+
+		<Dialog :model-value="prefsOpen" @update:model-value="(v) => !v && (prefsOpen = false)" :options="{ size: 'sm' }">
+			<template #body-title><h3 class="t-lg" style="font-weight: 600">Email notifications</h3></template>
+			<template #body-content>
+				<div class="flex col g-3">
+					<label class="pjx-pref pjx-pref--master">
+						<Checkbox :model-value="!!prefs.email_enabled" @update:model-value="(v) => (prefs.email_enabled = v ? 1 : 0)" />
+						<span style="font-weight: 600">Send me email notifications</span>
+					</label>
+					<label v-for="r in PREF_ROWS" :key="r.key" class="pjx-pref" :class="{ 'is-disabled': !prefs.email_enabled }">
+						<Checkbox
+							:model-value="!!prefs[r.key]"
+							:disabled="!prefs.email_enabled"
+							@update:model-value="(v) => (prefs[r.key] = v ? 1 : 0)"
+						/>
+						<span>{{ r.label }}</span>
+					</label>
+					<p class="t-xs ink-4" style="margin-top: 4px">
+						In-app notifications always appear here regardless of these settings.
+					</p>
+				</div>
+			</template>
+			<template #actions>
+				<Button variant="solid" theme="gray" :loading="prefsSaver.loading" @click="savePrefs">Save</Button>
+				<Button variant="subtle" theme="gray" @click="prefsOpen = false">Cancel</Button>
+			</template>
+		</Dialog>
 	</div>
 </template>
+
+<style scoped>
+.pjx-pref {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+	font-size: 13px;
+	color: var(--ink-gray-8);
+}
+.pjx-pref--master {
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--outline-gray-2);
+}
+.pjx-pref.is-disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+</style>

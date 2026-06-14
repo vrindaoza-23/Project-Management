@@ -33,10 +33,12 @@ const currentWorkspace = computed(() =>
 	store.workspaces.find((w) => w.name === ui.currentWorkspace) || store.workspaces[0],
 )
 
-// Projects shown in the sidebar, filtered to the active workspace if one is set.
+// Projects shown in the sidebar: never archived, filtered to the active
+// workspace if one is set.
 const visibleProjects = computed(() => {
-	if (!ui.currentWorkspace) return store.projects
-	return store.projects.filter((p) => p.workspace === ui.currentWorkspace)
+	const active = store.projects.filter((p) => !p.is_archived)
+	if (!ui.currentWorkspace) return active
+	return active.filter((p) => p.workspace === ui.currentWorkspace)
 })
 
 const workspaceOptions = computed(() => [
@@ -46,7 +48,47 @@ const workspaceOptions = computed(() => [
 	})),
 	{ label: 'All workspaces', onClick: () => (ui.currentWorkspace = null) },
 	{ label: '+ New workspace', onClick: openCreateWorkspace },
+	{ label: '+ New team', onClick: () => newTeam() },
 ])
+
+// Group visible projects under their team; ungrouped projects fall into a
+// trailing "No team" bucket. With no teams at all, there's a single bucket
+// and no extra sub-headers are shown.
+const collapsedTeams = ref({})
+function toggleTeam(key) {
+	collapsedTeams.value = { ...collapsedTeams.value, [key]: !collapsedTeams.value[key] }
+}
+const teamGroups = computed(() => {
+	const teamsInScope = store.teams.filter(
+		(t) => !ui.currentWorkspace || t.workspace === ui.currentWorkspace,
+	)
+	const byTeam = Object.fromEntries(teamsInScope.map((t) => [t.name, []]))
+	const ungrouped = []
+	for (const p of visibleProjects.value) {
+		if (p.team && byTeam[p.team]) byTeam[p.team].push(p)
+		else ungrouped.push(p)
+	}
+	const groups = teamsInScope
+		.map((t) => ({ key: t.name, team: t, label: t.team_name, icon: t.icon || 'users', projects: byTeam[t.name] }))
+		.filter((g) => g.projects.length)
+	if (ungrouped.length) {
+		groups.push({ key: '__none', team: null, label: 'No team', icon: 'folder', projects: ungrouped })
+	}
+	return groups
+})
+
+const teamCreator = createResource({ url: 'projex.api.create_team' })
+async function newTeam() {
+	const ws = currentWorkspace.value?.name
+	if (!ws) {
+		window.alert('Create a workspace first')
+		return
+	}
+	const name = (window.prompt('New team name') || '').trim()
+	if (!name) return
+	await teamCreator.submit({ workspace: ws, team_name: name })
+	reloadBootstrap()
+}
 </script>
 
 <template>
@@ -107,25 +149,39 @@ const workspaceOptions = computed(() => [
 				</button>
 			</div>
 			<template v-if="projOpen">
-				<router-link
-					v-for="p in visibleProjects"
-					:key="p.name"
-					:to="`/projects/${p.key}`"
-					class="nav pjx-navrow pjx-projrow"
-					:class="{ active: route.params.key === p.key }"
-					style="padding-left: 22px"
-				>
-					<span class="pjx-projicon"><Icon :name="p.icon || 'folder'" :size="12" /></span>
-					<span class="truncate">{{ p.project_name }}</span>
-					<button
-						class="pjx-star"
-						:class="{ on: isFav(p.name) }"
-						:title="isFav(p.name) ? 'Unstar' : 'Star'"
-						@click="toggleFav(p.name, $event)"
+				<template v-for="g in teamGroups" :key="g.key">
+					<div
+						v-if="g.team || teamGroups.length > 1"
+						class="pjx-side__teamhead"
+						@click="toggleTeam(g.key)"
 					>
-						<Icon :name="isFav(p.name) ? 'star' : 'star'" :size="13" />
-					</button>
-				</router-link>
+						<Icon :name="collapsedTeams[g.key] ? 'chevron-right' : 'chevron-down'" :size="11" />
+						<Icon :name="g.icon" :size="12" />
+						<span class="truncate">{{ g.label }}</span>
+						<span class="pjx-side__teamcount">{{ g.projects.length }}</span>
+					</div>
+					<template v-if="!collapsedTeams[g.key]">
+						<router-link
+							v-for="p in g.projects"
+							:key="p.name"
+							:to="`/projects/${p.key}`"
+							class="nav pjx-navrow pjx-projrow"
+							:class="{ active: route.params.key === p.key }"
+							:style="{ paddingLeft: g.team || teamGroups.length > 1 ? '34px' : '22px' }"
+						>
+							<span class="pjx-projicon"><Icon :name="p.icon || 'folder'" :size="12" /></span>
+							<span class="truncate">{{ p.project_name }}</span>
+							<button
+								class="pjx-star"
+								:class="{ on: isFav(p.name) }"
+								:title="isFav(p.name) ? 'Unstar' : 'Star'"
+								@click="toggleFav(p.name, $event)"
+							>
+								<Icon :name="isFav(p.name) ? 'star' : 'star'" :size="13" />
+							</button>
+						</router-link>
+					</template>
+				</template>
 				<div v-if="!visibleProjects.length" class="nav" style="padding-left: 22px; cursor: default" @click="openCreateProject">
 					<Icon name="plus" :size="14" class="ink-5" />
 					<span class="t-sm ink-5">Add your first project</span>
@@ -153,6 +209,28 @@ const workspaceOptions = computed(() => [
 </template>
 
 <style scoped>
+.pjx-side__teamhead {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px 4px 22px;
+	margin-top: 2px;
+	cursor: pointer;
+	color: var(--ink-gray-6);
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	user-select: none;
+}
+.pjx-side__teamhead:hover {
+	color: var(--ink-gray-8);
+}
+.pjx-side__teamcount {
+	margin-left: auto;
+	font-weight: 500;
+	color: var(--ink-gray-4);
+}
 .pjx-side__add {
 	border: 0;
 	background: transparent;
