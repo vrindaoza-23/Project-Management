@@ -1,9 +1,9 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { createResource, Dialog, Button, FormControl, DatePicker } from 'frappe-ui'
+import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
 import Icon from './Icon.vue'
-import SelectField from './SelectField.vue'
+import NativeSelect from './NativeSelect.vue'
 import { store } from '@/data/store'
 
 const props = defineProps({
@@ -101,27 +101,27 @@ async function submit() {
 				<div class="pjx-grid">
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Project</span>
-						<FormControl v-model="project" type="select" size="sm" :options="projectOptions" />
+						<NativeSelect v-model="project" :options="projectOptions" placeholder="Select project" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Type</span>
-						<FormControl v-model="issueType" type="select" size="sm" :options="TYPES" />
+						<NativeSelect v-model="issueType" :options="TYPES" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Priority</span>
-						<FormControl v-model="priority" type="select" size="sm" :options="PRIORITIES" />
+						<NativeSelect v-model="priority" :options="PRIORITIES" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Assignees</span>
-						<SelectField v-model="assignees" :options="userOptions" multiple placeholder="Unassigned" />
+						<NativeSelect v-model="assignees" :options="userOptions" multiple placeholder="Unassigned" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Labels</span>
-						<SelectField v-model="labels" :options="labelOptions" multiple placeholder="None" />
+						<NativeSelect v-model="labels" :options="labelOptions" multiple placeholder="None" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Due date</span>
-						<DatePicker v-model="dueDate" placeholder="No date" />
+						<input v-model="dueDate" type="date" class="pjx-dateinput" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Estimate</span>
@@ -157,5 +157,24 @@ async function submit() {
 .pjx-fld__l {
 	font-size: 12px;
 	color: var(--ink-gray-5);
+}
+.pjx-dateinput {
+	width: 100%;
+	height: 28px;
+	padding: 0 10px;
+	font-size: 13px;
+	font-family: var(--font-sans);
+	color: var(--ink-gray-8);
+	background: var(--surface-gray-2);
+	border: 1px solid transparent;
+	border-radius: 8px;
+}
+.pjx-dateinput:hover {
+	background: var(--surface-gray-3);
+}
+.pjx-dateinput:focus {
+	outline: none;
+	border-color: var(--outline-gray-3);
+	background: var(--surface-white);
 }
 </style>

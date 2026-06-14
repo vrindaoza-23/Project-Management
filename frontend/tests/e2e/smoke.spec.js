@@ -6,8 +6,9 @@ test.describe('Projex smoke', () => {
 	test('app shell renders with projects', async ({ page }) => {
 		await page.goto('/projex/inbox')
 		await expect(page.locator('.pjx-side')).toBeVisible()
-		// Projects section lists at least one seeded project
-		await expect(page.getByText('Billing v2').first()).toBeVisible()
+		// Projects section lists at least one seeded project (bootstrap is async,
+		// so allow time for it to load before asserting).
+		await expect(page.getByText('Billing v2').first()).toBeVisible({ timeout: 15000 })
 	})
 
 	test('open a project, list tasks, open the drawer', async ({ page }) => {
