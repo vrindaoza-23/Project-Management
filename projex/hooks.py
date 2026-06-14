@@ -56,6 +56,11 @@ app_license = "agpl-3.0"
 # Home Pages
 # ----------
 
+# Serve the Vue SPA: deep links under /projex resolve to the built page.
+website_route_rules = [
+	{"from_route": "/projex/<path:app_path>", "to_route": "projex"},
+]
+
 # application home page (will override Website Settings)
 # home_page = "login"
 
@@ -86,7 +91,17 @@ app_license = "agpl-3.0"
 # ------------
 
 # before_install = "projex.install.before_install"
-# after_install = "projex.install.after_install"
+after_install = [
+	"projex.setup.defaults.run",
+	"projex.setup.erpnext_integration.setup_custom_fields",
+]
+
+# Seed defaults (roles + global statuses) and re-apply optional ERPNext custom
+# fields after every migrate. Both are idempotent.
+after_migrate = [
+	"projex.setup.defaults.run",
+	"projex.setup.erpnext_integration.setup_custom_fields",
+]
 
 # Uninstallation
 # ------------
@@ -126,13 +141,21 @@ app_license = "agpl-3.0"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+permission_query_conditions = {
+	"Projex Project": "projex.projex.doctype.projex_project.projex_project.get_permission_query_conditions",
+	"Projex Issue": "projex.projex.doctype.projex_issue.projex_issue.get_permission_query_conditions",
+	"Projex Comment": "projex.projex.doctype.projex_comment.projex_comment.get_permission_query_conditions",
+}
+
+has_permission = {
+	"Projex Project": "projex.projex.doctype.projex_project.projex_project.has_permission",
+	"Projex Issue": "projex.projex.doctype.projex_issue.projex_issue.has_permission",
+}
+
+# Validate file attachments on Projex issues (size + blocked extensions).
+doc_events = {
+	"File": {"before_insert": "projex.api.validate_attachment"},
+}
 
 # Document Events
 # ---------------

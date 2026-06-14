@@ -1,0 +1,122 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-06-13 12:34:13.177386",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "status_name",
+  "category",
+  "color_theme",
+  "dot_hollow",
+  "position",
+  "project"
+ ],
+ "fields": [
+  {
+   "fieldname": "status_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status name",
+   "reqd": 1
+  },
+  {
+   "default": "unstarted",
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "backlog\nunstarted\nstarted\ncompleted\ncancelled"
+  },
+  {
+   "default": "gray",
+   "fieldname": "color_theme",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Color theme",
+   "options": "gray\nblue\namber\ngreen\nred\npurple"
+  },
+  {
+   "default": "0",
+   "fieldname": "dot_hollow",
+   "fieldtype": "Check",
+   "label": "Hollow dot"
+  },
+  {
+   "default": "0",
+   "fieldname": "position",
+   "fieldtype": "Int",
+   "label": "Position"
+  },
+  {
+   "description": "Leave empty for a global/default status",
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Projex Project"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-13 12:34:13.177386",
+ "modified_by": "Administrator",
+ "module": "Projex",
+ "name": "Projex Status",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Member",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Guest",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "status_name",
+ "track_changes": 1
+}

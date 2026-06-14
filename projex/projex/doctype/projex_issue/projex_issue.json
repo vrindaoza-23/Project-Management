@@ -1,0 +1,228 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "creation": "2026-06-13 12:34:13.429151",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "issue_id",
+  "project",
+  "workspace",
+  "col_1",
+  "status",
+  "priority",
+  "rank",
+  "people_section",
+  "assignees",
+  "reporter",
+  "col_2",
+  "labels",
+  "planning_section",
+  "cycle",
+  "start_date",
+  "due_date",
+  "estimate",
+  "col_3",
+  "parent_issue",
+  "desc_section",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "bold": 1,
+   "description": "Per-project key e.g. BIL-12 (mirrors name)",
+   "fieldname": "issue_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Issue ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Project",
+   "options": "Projex Project",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "project.workspace",
+   "fieldname": "workspace",
+   "fieldtype": "Link",
+   "label": "Workspace",
+   "options": "Projex Workspace",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Projex Status"
+  },
+  {
+   "default": "None",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Priority",
+   "options": "Urgent\nHigh\nMedium\nLow\nNone"
+  },
+  {
+   "description": "Lexo-rank for manual ordering",
+   "fieldname": "rank",
+   "fieldtype": "Data",
+   "label": "Rank"
+  },
+  {
+   "fieldname": "people_section",
+   "fieldtype": "Section Break",
+   "label": "People"
+  },
+  {
+   "fieldname": "assignees",
+   "fieldtype": "Table MultiSelect",
+   "label": "Assignees",
+   "options": "Projex Issue Assignee"
+  },
+  {
+   "fieldname": "reporter",
+   "fieldtype": "Link",
+   "label": "Reporter",
+   "options": "User"
+  },
+  {
+   "fieldname": "col_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "labels",
+   "fieldtype": "Table MultiSelect",
+   "label": "Labels",
+   "options": "Projex Issue Label"
+  },
+  {
+   "fieldname": "planning_section",
+   "fieldtype": "Section Break",
+   "label": "Planning"
+  },
+  {
+   "fieldname": "cycle",
+   "fieldtype": "Link",
+   "label": "Cycle",
+   "options": "Projex Cycle"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start date"
+  },
+  {
+   "fieldname": "due_date",
+   "fieldtype": "Date",
+   "label": "Due date"
+  },
+  {
+   "description": "Story points",
+   "fieldname": "estimate",
+   "fieldtype": "Int",
+   "label": "Estimate"
+  },
+  {
+   "fieldname": "col_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "parent_issue",
+   "fieldtype": "Link",
+   "label": "Parent issue",
+   "options": "Projex Issue"
+  },
+  {
+   "fieldname": "desc_section",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-13 12:34:13.429151",
+ "modified_by": "Administrator",
+ "module": "Projex",
+ "name": "Projex Issue",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Member",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Guest",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "show_title_field_in_link": 1,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}
