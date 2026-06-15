@@ -144,6 +144,11 @@ body { background: var(--surface-white); }
 .pjx-card__labels { display: flex; flex-wrap: wrap; gap: 5px; }
 .pjx-card__foot { display: flex; align-items: center; gap: 8px; }
 
+/* frappe-ui Dialog overlay ships with no z-index (relies on DOM order), so
+   any positioned z-index:1 app content (e.g. .pjx-inbox__filters) paints
+   through the scrim. Pin it above the drawer/scrim like our other overlays. */
+.dialog-overlay { z-index: 210; }
+
 /* ─────────────────────── Command palette ─────────────────────── */
 .pjx-cmdk { position: fixed; inset: 0; z-index: 200; background: var(--black-overlay-300); display: flex; justify-content: center; padding-top: 13vh; }
 .pjx-cmdk__box { width: 600px; max-width: calc(100vw - 32px); max-height: 64vh; background: var(--surface-modal); border: 1px solid var(--outline-gray-2); border-radius: 12px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; }

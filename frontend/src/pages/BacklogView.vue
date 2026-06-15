@@ -6,6 +6,7 @@ import PriorityBars from '@/components/PriorityBars.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import { dueLabel, isToday } from '@/utils/format'
+import { sumPoints, donePoints } from '@/utils/scrum'
 
 const props = defineProps({
 	projectKey: { type: String, required: true },
@@ -31,18 +32,11 @@ const completedStatuses = computed(
 )
 const cycles = computed(() => pickers.data?.cycles || [])
 
-function points(list) {
-	return list.reduce((sum, i) => sum + (Number(i.estimate) || 0), 0)
-}
-function donePoints(list) {
-	return list.filter((i) => completedStatuses.value.has(i.status)).reduce((s, i) => s + (Number(i.estimate) || 0), 0)
-}
-
 const backlog = computed(() => props.issues.filter((i) => !i.cycle))
 const sprints = computed(() =>
 	cycles.value.map((c) => {
 		const items = props.issues.filter((i) => i.cycle === c.name)
-		return { ...c, items, total: points(items), done: donePoints(items) }
+		return { ...c, items, total: sumPoints(items), done: donePoints(items, completedStatuses.value) }
 	}),
 )
 
@@ -155,7 +149,7 @@ function statusMeta(name) {
 		<section class="pjx-bl__col">
 			<div class="pjx-bl__head">
 				<h3 class="pjx-bl__title"><Icon name="inbox" :size="15" /> Backlog</h3>
-				<span class="pjx-sprint__pts">{{ backlog.length }} tasks · {{ points(backlog) }} pts</span>
+				<span class="pjx-sprint__pts">{{ backlog.length }} tasks · {{ sumPoints(backlog) }} pts</span>
 			</div>
 			<div class="pjx-bl__list">
 				<div v-for="i in backlog" :key="i.name" class="pjx-blrow" @click="emit('open', i.name)">

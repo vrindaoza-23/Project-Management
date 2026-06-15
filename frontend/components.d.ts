@@ -23,6 +23,7 @@ declare module 'vue' {
     LivePill: typeof import('./src/components/LivePill.vue')['default']
     LogTimeDialog: typeof import('./src/components/LogTimeDialog.vue')['default']
     MultiSelectPopover: typeof import('./src/components/MultiSelectPopover.vue')['default']
+    NativeSelect: typeof import('./src/components/NativeSelect.vue')['default']
     PageHeader: typeof import('./src/components/PageHeader.vue')['default']
     PriorityBars: typeof import('./src/components/PriorityBars.vue')['default']
     ProjectSettingsDialog: typeof import('./src/components/ProjectSettingsDialog.vue')['default']
