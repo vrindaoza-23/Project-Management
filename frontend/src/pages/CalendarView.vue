@@ -16,6 +16,13 @@ const monthLabel = computed(() =>
 	cursor.value.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
 )
 
+// Local-timezone ISO date (YYYY-MM-DD). toISOString() is UTC and shifts the day
+// by one in negative-offset zones, which mis-buckets tasks and the "today" ring.
+function localISO(d) {
+	const z = (n) => String(n).padStart(2, '0')
+	return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`
+}
+
 // Build a 6-week grid starting on Sunday.
 const weeks = computed(() => {
 	const first = new Date(cursor.value.getFullYear(), cursor.value.getMonth(), 1)
@@ -26,17 +33,18 @@ const weeks = computed(() => {
 		if (!it.due_date) continue
 		;(byDay[it.due_date] ||= []).push(it)
 	}
+	const todayISO = localISO(new Date())
 	const grid = []
 	const d = new Date(start)
 	for (let w = 0; w < 6; w++) {
 		const row = []
 		for (let i = 0; i < 7; i++) {
-			const iso = d.toISOString().slice(0, 10)
+			const iso = localISO(d)
 			row.push({
 				date: new Date(d),
 				iso,
 				inMonth: d.getMonth() === cursor.value.getMonth(),
-				isToday: iso === new Date().toISOString().slice(0, 10),
+				isToday: iso === todayISO,
 				items: byDay[iso] || [],
 			})
 			d.setDate(d.getDate() + 1)
@@ -45,6 +53,11 @@ const weeks = computed(() => {
 	}
 	return grid
 })
+
+// Count dated tasks visible this month, to show a gentle hint when there are none.
+const monthlyCount = computed(() =>
+	weeks.value.flat().reduce((n, c) => n + (c.inMonth ? c.items.length : 0), 0),
+)
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 function move(delta) {
@@ -62,6 +75,7 @@ function today() {
 			<span class="pjx-cal__month">{{ monthLabel }}</span>
 			<button class="pjx-cal__nav" @click="move(1)"><Icon name="chevron-right" :size="16" /></button>
 			<button class="pjx-cal__today" @click="today">Today</button>
+			<span v-if="!monthlyCount" class="pjx-cal__hint">No tasks due this month</span>
 		</div>
 		<div class="pjx-cal__dow">
 			<span v-for="d in DOW" :key="d">{{ d }}</span>
@@ -98,6 +112,7 @@ function today() {
 .pjx-cal__nav:hover { background: var(--surface-gray-2); }
 .pjx-cal__month { font-size: 15px; font-weight: 600; min-width: 160px; }
 .pjx-cal__today { margin-left: 6px; border: 1px solid var(--outline-gray-2); background: var(--surface-white); border-radius: 7px; height: 28px; padding: 0 10px; font-size: 13px; cursor: pointer; }
+.pjx-cal__hint { margin-left: auto; font-size: 12px; color: var(--ink-gray-5); }
 .pjx-cal__dow { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 11px; color: var(--ink-gray-5); padding-bottom: 4px; }
 .pjx-cal__grid { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--outline-gray-1); border-radius: 10px; overflow: hidden; }
 .pjx-cal__week { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); }

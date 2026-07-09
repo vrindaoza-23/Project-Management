@@ -278,13 +278,18 @@ body.pjx-dragging * { cursor: grabbing !important; }
 
 /* ─────────────────────── Roadmap ─────────────────────── */
 .pjx-roadmap { padding: 14px 16px 64px; }
-.pjx-roadmap__head { display: grid; grid-template-columns: 240px repeat(3,1fr); border-bottom: 1px solid var(--outline-gray-1); padding-bottom: 6px; }
-.pjx-roadmap__q { border-left: 1px solid var(--outline-gray-1); padding: 4px 12px; font-size: 11px; letter-spacing: .02em; color: var(--ink-gray-5); }
+.pjx-roadmap__head { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--outline-gray-1); padding-bottom: 6px; }
+.pjx-roadmap__qtrack { position: relative; height: 20px; }
+.pjx-roadmap__q { position: absolute; top: 0; border-left: 1px solid var(--outline-gray-1); padding: 4px 12px; font-size: 11px; letter-spacing: .02em; color: var(--ink-gray-5); white-space: nowrap; overflow: hidden; }
 .pjx-roadmap__grid { padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 .pjx-roadmap__row { display: grid; grid-template-columns: 240px 1fr; align-items: center; height: 36px; }
 .pjx-roadmap__rl { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-gray-8); padding-right: 12px; overflow: hidden; }
 .pjx-roadmap__rl span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pjx-roadmap__track { position: relative; height: 26px; background-image: linear-gradient(to right, var(--outline-gray-1) 1px, transparent 1px); background-size: 33.333% 100%; }
+.pjx-roadmap__track { position: relative; height: 26px; background-image: linear-gradient(to right, var(--outline-gray-1) 1px, transparent 1px); background-size: var(--pjx-q-step, 33.333%) 100%; }
+.pjx-roadmap__state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 80px 20px; }
+.pjx-spin { animation: pjx-spin 0.9s linear infinite; }
+@keyframes pjx-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pjx-spin { animation: none; } }
 .pjx-roadmap__bar { position: absolute; top: 3px; bottom: 3px; border-radius: 6px; display: flex; align-items: center; padding: 0 9px; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; }
 .pjx-roadmap__bar:hover { filter: brightness(.95); }
 .pjx-roadmap__barlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
