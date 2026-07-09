@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { createResource, Dialog, Button } from 'frappe-ui'
+import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
 import Icon from './Icon.vue'
 import { reloadBootstrap } from '@/data/store'
 import { ui } from '@/data/ui'
@@ -45,10 +45,7 @@ async function submit() {
 		<template #body-title><h3 class="t-lg" style="font-weight: 600">New workspace</h3></template>
 		<template #body-content>
 			<div class="flex col g-3" style="padding-top: 4px">
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Workspace name</span>
-					<input v-model="name" class="input" placeholder="e.g. Acme Inc" autofocus />
-				</label>
+				<FormControl v-model="name" type="text" label="Workspace name" placeholder="e.g. Acme Inc" autofocus />
 				<div class="flex col g-1">
 					<span class="t-xs ink-5">Icon</span>
 					<div class="flex g-1">

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { createResource, Dialog, Button, DatePicker } from 'frappe-ui'
+import { createResource, Dialog, Button, DatePicker, FormControl, Checkbox } from 'frappe-ui'
 import NativeSelect from './NativeSelect.vue'
 
 const props = defineProps({
@@ -80,27 +80,17 @@ async function submit() {
 					<NativeSelect v-model="task" :options="taskOptions" placeholder="Pick a task" />
 				</label>
 				<div class="flex g-2">
-					<label class="flex col g-1" style="width: 120px">
-						<span class="t-xs ink-5">Hours</span>
-						<input v-model.number="hours" type="number" min="0" step="0.25" class="input" />
-					</label>
+					<div style="width: 120px">
+						<FormControl v-model.number="hours" type="number" label="Hours" :min="0" :step="0.25" />
+					</div>
 					<label class="flex col g-1" style="flex: 1">
 						<span class="t-xs ink-5">Date</span>
 						<DatePicker v-model="date" placeholder="Date" />
 					</label>
 				</div>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Activity <span class="ink-4">(optional)</span></span>
-					<input v-model="activity" class="input" placeholder="e.g. Development, Review, Meeting" />
-				</label>
-				<label class="flex items-center g-2" style="cursor: pointer">
-					<input v-model="billable" type="checkbox" />
-					<span class="t-sm">Billable</span>
-				</label>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Note</span>
-					<textarea v-model="note" class="input" rows="2" style="resize: vertical; font-family: var(--font-sans)" />
-				</label>
+				<FormControl v-model="activity" type="text" label="Activity (optional)" placeholder="e.g. Development, Review, Meeting" />
+				<Checkbox v-model="billable" label="Billable" />
+				<FormControl v-model="note" type="textarea" label="Note" :rows="2" />
 				<div v-if="error" class="t-sm ink-red">{{ error }}</div>
 			</div>
 		</template>

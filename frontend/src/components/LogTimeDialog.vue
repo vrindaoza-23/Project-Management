@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { createResource, Dialog, Button } from 'frappe-ui'
+import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
 import SelectField from './SelectField.vue'
 
 const props = defineProps({ open: Boolean, issue: { type: String, required: true } })
@@ -50,10 +50,9 @@ async function submit() {
 		<template #body-title><h3 class="t-lg" style="font-weight: 600">Log time</h3></template>
 		<template #body-content>
 			<div class="flex col g-3" style="padding-top: 4px">
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Hours</span>
-					<input v-model.number="hours" type="number" min="0" step="0.25" class="input" style="width: 120px" />
-				</label>
+				<div style="width: 120px">
+					<FormControl v-model.number="hours" type="number" label="Hours" :min="0" :step="0.25" />
+				</div>
 				<label class="flex col g-1">
 					<span class="t-xs ink-5">Activity type</span>
 					<SelectField
@@ -63,10 +62,7 @@ async function submit() {
 						@change="(v) => (activity = v || '')"
 					/>
 				</label>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Note</span>
-					<textarea v-model="note" class="input" rows="2" style="resize: vertical" />
-				</label>
+				<FormControl v-model="note" type="textarea" label="Note" :rows="2" />
 				<div v-if="error" class="t-sm ink-red">{{ error }}</div>
 			</div>
 		</template>

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { createResource, Dialog, Button } from 'frappe-ui'
+import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
 import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import { store, reloadBootstrap } from '@/data/store'
@@ -92,14 +92,12 @@ async function submit() {
 		<template #body-content>
 			<div class="flex col g-3" style="padding-top: 4px">
 				<div class="flex g-2">
-					<label class="flex col g-1" style="flex: 1">
-						<span class="t-xs ink-5">Project name</span>
-						<input v-model="name" class="input" placeholder="e.g. Billing v2" autofocus />
-					</label>
-					<label class="flex col g-1" style="width: 96px">
-						<span class="t-xs ink-5">Key</span>
-						<input v-model="key" class="input" maxlength="4" placeholder="BIL" @input="keyEdited = true" style="text-transform: uppercase" />
-					</label>
+					<div style="flex: 1">
+						<FormControl v-model="name" type="text" label="Project name" placeholder="e.g. Billing v2" autofocus />
+					</div>
+					<div style="width: 96px">
+						<FormControl v-model="key" type="text" label="Key" :maxlength="4" placeholder="BIL" style="text-transform: uppercase" @input="keyEdited = true" />
+					</div>
 				</div>
 				<div class="flex col g-1">
 					<span class="t-xs ink-5">Icon</span>

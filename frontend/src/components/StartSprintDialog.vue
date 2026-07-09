@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
-import { createResource, Dialog, Button, DatePicker } from 'frappe-ui'
+import { createResource, Dialog, Button, DatePicker, FormControl } from 'frappe-ui'
 
 const props = defineProps({
 	open: Boolean,
@@ -81,10 +81,7 @@ async function submit() {
 						<DatePicker v-model="end" placeholder="End date" />
 					</label>
 				</div>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">Sprint goal</span>
-					<textarea v-model="goal" class="input" rows="2" placeholder="What is this sprint trying to achieve?" style="resize: vertical; font-family: var(--font-sans)" />
-				</label>
+				<FormControl v-model="goal" type="textarea" label="Sprint goal" :rows="2" placeholder="What is this sprint trying to achieve?" />
 				<div v-if="error" class="t-sm ink-red">{{ error }}</div>
 			</div>
 		</template>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
-import { createResource, Dropdown, Button, DatePicker } from 'frappe-ui'
+import { createResource, Dropdown, Button, DatePicker, FormControl } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
@@ -214,8 +214,8 @@ const completeIssues = computed(() =>
 			</div>
 
 			<div v-if="adding" class="pjx-bl__newsprint">
-				<input v-model="draft.name" class="input" placeholder="Sprint name (e.g. Sprint 4)" />
-				<input v-model="draft.goal" class="input" placeholder="Sprint goal (optional)" />
+				<FormControl v-model="draft.name" type="text" placeholder="Sprint name (e.g. Sprint 4)" />
+				<FormControl v-model="draft.goal" type="text" placeholder="Sprint goal (optional)" />
 				<div class="flex g-2">
 					<DatePicker v-model="draft.start" placeholder="Start date" />
 					<DatePicker v-model="draft.end" placeholder="End date" />
