@@ -89,7 +89,7 @@
   border:1px solid transparent;cursor:pointer;white-space:nowrap;
   transition:background .12s,border-color .12s,box-shadow .12s;font-family:var(--font-sans);
   height:28px;padding:0 8px;border-radius:8px;font-size:14px;font-weight:420}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--gray-300)}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--outline-gray-3)}
 .btn.sz-md{height:32px;padding:0 10px;font-weight:500}
 .btn.sz-lg{height:40px;padding:0 14px;font-size:16px;font-weight:500;border-radius:10px}
 .btn.icon{padding:0;width:28px}.btn.icon.sz-md{width:32px}
@@ -128,7 +128,7 @@
 .input{height:28px;border:1px solid var(--outline-gray-2);border-radius:8px;background:var(--surface-white);
   padding:0 9px;font-family:var(--font-sans);font-size:14px;color:var(--ink-gray-9);width:100%}
 .input::placeholder{color:var(--ink-gray-4)}
-.input:focus{outline:none;border-color:var(--outline-gray-3);box-shadow:0 0 0 2px var(--gray-200)}
+.input:focus{outline:none;border-color:var(--outline-gray-3);box-shadow:0 0 0 2px var(--outline-gray-3)}
 textarea.input{height:auto;padding:7px 9px;line-height:1.5;resize:vertical}
 
 /* ---- nav item ---- */

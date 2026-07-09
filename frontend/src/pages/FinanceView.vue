@@ -79,8 +79,8 @@ const marginPositive = computed(() => (s.value.gross_margin || 0) >= 0)
 
 <style scoped>
 .pjx-fin { padding: 16px; overflow-y: auto; }
-.pjx-fin__hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-radius: 12px; background: var(--surface-green-2, #e6f4ea); color: var(--ink-green-3, #137333); margin-bottom: 12px; }
-.pjx-fin__hero.neg { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
+.pjx-fin__hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; border-radius: 12px; background: var(--surface-green-2); color: var(--ink-green-3); margin-bottom: 12px; }
+.pjx-fin__hero.neg { background: var(--surface-red-2); color: var(--ink-red-3); }
 .pjx-fin__herolbl { font-size: 12px; font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; }
 .pjx-fin__heronum { font-size: 30px; font-weight: 700; }
 .pjx-fin__pct { font-size: 40px; font-weight: 700; }
@@ -98,8 +98,8 @@ const marginPositive = computed(() => (s.value.gross_margin || 0) >= 0)
 .pjx-fin__invtot { font-weight: 600; color: var(--ink-gray-9); font-variant-numeric: tabular-nums; }
 .pjx-id { font-size: 12px; color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
 .pjx-badge { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--surface-gray-2); color: var(--ink-gray-7); }
-.pjx-badge[data-st='Paid'] { background: var(--surface-green-2, #e6f4ea); color: var(--ink-green-3, #137333); }
-.pjx-badge[data-st='Overdue'] { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
+.pjx-badge[data-st='Paid'] { background: var(--surface-green-2); color: var(--ink-green-3); }
+.pjx-badge[data-st='Overdue'] { background: var(--surface-red-2); color: var(--ink-red-3); }
 .pjx-fin__empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 300px; text-align: center; color: var(--ink-gray-6); }
 .pjx-fin__empty h3 { font-size: 15px; font-weight: 600; color: var(--ink-gray-8); }
 .pjx-fin__empty p { font-size: 13px; color: var(--ink-gray-5); max-width: 380px; }

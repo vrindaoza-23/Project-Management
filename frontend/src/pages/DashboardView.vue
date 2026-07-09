@@ -47,9 +47,9 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 				<div><div class="pjx-statcard__n">{{ d.total ?? 0 }}</div><div class="pjx-statcard__s">total issues</div></div></div>
 			<div class="pjx-statcard"><span class="pjx-statcard__ic"><Icon name="circle-dot" :size="18" /></span>
 				<div><div class="pjx-statcard__n">{{ openCount }}</div><div class="pjx-statcard__s">open</div></div></div>
-			<div class="pjx-statcard"><span class="pjx-statcard__ic" style="background: var(--surface-red-2, #fde8e8); color: var(--red-600)"><Icon name="bug" :size="18" /></span>
+			<div class="pjx-statcard"><span class="pjx-statcard__ic" style="background: var(--surface-red-2); color: var(--red-600)"><Icon name="bug" :size="18" /></span>
 				<div><div class="pjx-statcard__n">{{ openBugs.length }}</div><div class="pjx-statcard__s">open bugs</div></div></div>
-			<div class="pjx-statcard"><span class="pjx-statcard__ic" style="background: var(--surface-green-2, #e6f4ea); color: var(--green-600)"><Icon name="circle-check-big" :size="18" /></span>
+			<div class="pjx-statcard"><span class="pjx-statcard__ic" style="background: var(--surface-green-2); color: var(--green-600)"><Icon name="circle-check-big" :size="18" /></span>
 				<div><div class="pjx-statcard__n">{{ cat.completed || 0 }}</div><div class="pjx-statcard__s">completed</div></div></div>
 		</div>
 
@@ -132,8 +132,8 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 .pjx-wl__bar span.under { background: var(--amber-500); }
 .pjx-wl__n { width: 64px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-gray-6); flex: none; }
 .pjx-wl__flag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; flex: none; }
-.pjx-wl__flag.over { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
-.pjx-wl__flag.under { background: var(--surface-amber-2, #fef3c7); color: var(--ink-amber-3, #b06000); }
+.pjx-wl__flag.over { background: var(--surface-red-2); color: var(--ink-red-3); }
+.pjx-wl__flag.under { background: var(--surface-amber-2); color: var(--ink-amber-3); }
 .pjx-bugrow { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 7px; cursor: pointer; font-size: 13px; }
 .pjx-bugrow:hover { background: var(--surface-gray-1); }
 .pjx-bugrow__t { flex: 1; color: var(--ink-gray-8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

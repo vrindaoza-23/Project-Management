@@ -329,11 +329,11 @@ const completeIssues = computed(() =>
 .pjx-sprint.is-over, .pjx-bl__drop.is-over { outline: 2px solid var(--outline-blue-2, var(--blue-400)); outline-offset: -2px; background: var(--surface-blue-1, rgba(59, 130, 246, 0.04)); border-radius: 10px; }
 .pjx-sprint__head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--outline-gray-1); }
 .pjx-state { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 9999px; background: var(--surface-gray-3); color: var(--ink-gray-7); }
-.pjx-state[data-theme='green'] { background: var(--surface-green-2, #e6f4ea); color: var(--ink-green-3, #137333); }
-.pjx-state[data-theme='blue'] { background: var(--surface-blue-2, #e8f0fe); color: var(--ink-blue-3, #1a73e8); }
+.pjx-state[data-theme='green'] { background: var(--surface-green-2); color: var(--ink-green-3); }
+.pjx-state[data-theme='blue'] { background: var(--surface-blue-2); color: var(--ink-blue-3); }
 .pjx-sprint__name { font-weight: 600; font-size: 13px; color: var(--ink-gray-9); flex: 1; }
 .pjx-sprint__pts { font-size: 12px; color: var(--ink-gray-5); }
-.pjx-over { color: var(--ink-amber-3, #b06000); font-weight: 600; }
+.pjx-over { color: var(--ink-amber-3); font-weight: 600; }
 .pjx-sprint__goal { display: flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; color: var(--ink-gray-6); border-bottom: 1px solid var(--outline-gray-1); }
 .pjx-sprint__pbar { height: 4px; background: var(--surface-gray-2); }
 .pjx-sprint__pbar span { display: block; height: 100%; background: var(--green-600); }

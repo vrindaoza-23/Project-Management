@@ -143,6 +143,6 @@ async function removeEntry(e) {
 .pjx-ts__x { border: 0; background: transparent; cursor: pointer; color: var(--ink-gray-4); display: grid; place-items: center; padding: 2px; border-radius: 5px; }
 .pjx-ts__x:hover { background: var(--surface-gray-3); color: var(--ink-gray-7); }
 .pjx-id { font-size: 12px; color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
-.pjx-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--surface-green-2, #e6f4ea); color: var(--ink-green-3, #137333); }
+.pjx-badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--surface-green-2); color: var(--ink-green-3); }
 .pjx-dim { color: var(--ink-gray-5); }
 </style>

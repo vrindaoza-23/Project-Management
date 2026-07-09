@@ -128,11 +128,11 @@ function afterChange() {
 	background: var(--surface-gray-3);
 	color: var(--ink-gray-7);
 }
-.pjx-state[data-theme='green'] { background: var(--surface-green-2, #e6f4ea); color: var(--ink-green-3, #137333); }
-.pjx-state[data-theme='blue'] { background: var(--surface-blue-2, #e8f0fe); color: var(--ink-blue-3, #1a73e8); }
+.pjx-state[data-theme='green'] { background: var(--surface-green-2); color: var(--ink-green-3); }
+.pjx-state[data-theme='blue'] { background: var(--surface-blue-2); color: var(--ink-blue-3); }
 .pjx-sprintbar__dates { font-size: 12px; color: var(--ink-gray-5); }
-.pjx-sprintbar__days { font-size: 12px; font-weight: 600; color: var(--ink-amber-3, #b06000); }
-.pjx-sprintbar__days.is-over { color: var(--ink-red-3, #c5221f); }
+.pjx-sprintbar__days { font-size: 12px; font-weight: 600; color: var(--ink-amber-3); }
+.pjx-sprintbar__days.is-over { color: var(--ink-red-3); }
 .pjx-sprintbar__meter { display: flex; align-items: center; gap: 8px; }
 .pjx-sprintbar__pbar { width: 120px; height: 6px; border-radius: 3px; background: var(--surface-gray-2); overflow: hidden; }
 .pjx-sprintbar__pbar span { display: block; height: 100%; background: var(--green-600); }

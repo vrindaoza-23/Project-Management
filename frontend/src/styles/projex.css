@@ -80,7 +80,7 @@ body { background: var(--surface-white); }
 
 /* ─────────────────────── Quick add ─────────────────────── */
 .pjx-quickadd { display: flex; align-items: center; gap: 10px; margin: 12px 16px 4px; padding: 0 10px 0 12px; height: 38px; border: 1px solid var(--outline-gray-2); border-radius: 8px; background: var(--surface-white); }
-.pjx-quickadd:focus-within { border-color: var(--outline-gray-3); box-shadow: 0 0 0 2px var(--gray-200); }
+.pjx-quickadd:focus-within { border-color: var(--outline-gray-3); box-shadow:0 0 0 2px var(--outline-gray-3); }
 .pjx-quickadd__input { flex: 1; appearance: none; border: 0; outline: 0; background: transparent; font-family: var(--font-sans); font-size: 14px; color: var(--ink-gray-9); }
 .pjx-quickadd__input::placeholder { color: var(--ink-gray-4); }
 .pjx-tok { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 9999px; font-size: 12px; white-space: nowrap; background: var(--surface-gray-2); color: var(--ink-gray-6); }
@@ -149,9 +149,9 @@ body.pjx-dragging { cursor: grabbing; user-select: none; }
 body.pjx-dragging * { cursor: grabbing !important; }
 /* Pending-age chip (time in current status) + rework badges — shared across views. */
 .pjx-age { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-gray-2); color: var(--ink-gray-5); white-space: nowrap; }
-.pjx-age[data-level='warn'] { background: var(--surface-amber-2, #fef3c7); color: var(--ink-amber-3, #b06000); }
-.pjx-age[data-level='stale'] { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
-.pjx-rwk { display: inline-flex; align-items: center; gap: 2px; height: 18px; padding: 0 5px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-red-1, #fef2f2); color: var(--ink-red-3, #c5221f); }
+.pjx-age[data-level='warn'] { background: var(--surface-amber-2); color: var(--ink-amber-3); }
+.pjx-age[data-level='stale'] { background: var(--surface-red-2); color: var(--ink-red-3); }
+.pjx-rwk { display: inline-flex; align-items: center; gap: 2px; height: 18px; padding: 0 5px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-red-1); color: var(--ink-red-3); }
 .pjx-card__top { display: flex; align-items: center; gap: 7px; }
 .pjx-card__title { font-size: 13px; color: var(--ink-gray-9); line-height: 1.42; text-wrap: pretty; }
 .pjx-card__labels { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -227,7 +227,7 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-react:hover { background: var(--surface-gray-2); }
 .pjx-commentbox { display: flex; gap: 10px; margin-top: 4px; }
 .pjx-commentbox__field { flex: 1; border: 1px solid var(--outline-gray-2); border-radius: 10px; background: var(--surface-white); overflow: hidden; }
-.pjx-commentbox__field:focus-within { border-color: var(--outline-gray-3); box-shadow: 0 0 0 2px var(--gray-200); }
+.pjx-commentbox__field:focus-within { border-color: var(--outline-gray-3); box-shadow:0 0 0 2px var(--outline-gray-3); }
 .pjx-commentbox__input { padding: 10px 12px; min-height: 56px; outline: 0; font-size: 13px; color: var(--ink-gray-5); }
 .pjx-commentbox__input:focus { color: var(--ink-gray-9); }
 .pjx-commentbox__foot { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-top: 1px solid var(--outline-gray-1); background: var(--surface-gray-1); }
@@ -346,7 +346,7 @@ button:active:not(:disabled), .pjx-iconbtn:active { transform: scale(.97); }
 
 /* — Focus: one clear accent ring (keyboard only) — */
 :where(button, a, input, textarea, select, .pjx-row, .nav, .pjx-vtab, .pjx-chip, .pjx-blrow):focus-visible {
-  outline: 2px solid var(--blue-400);
+  outline: 2px solid var(--blue-500);
   outline-offset: 2px;
   border-radius: 8px;
 }
