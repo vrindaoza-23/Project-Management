@@ -4,10 +4,10 @@ import { toast } from 'frappe-ui'
 // Toast notifications ------------------------------------------------------- //
 
 export const notify = {
-	success: (message, opts = {}) => toast.create({ type: 'success', message, ...opts }),
-	error: (message, opts = {}) => toast.create({ type: 'error', message, ...opts }),
-	info: (message, opts = {}) => toast.create({ type: 'info', message, ...opts }),
-	warning: (message, opts = {}) => toast.create({ type: 'warning', message, ...opts }),
+	success: (message, opts = {}) => toast.success(message, opts),
+	error: (message, opts = {}) => toast.error(message, opts),
+	info: (message, opts = {}) => toast.info(message, opts),
+	warning: (message, opts = {}) => toast.warning(message, opts),
 }
 
 // Pull a human message out of a Frappe API error and surface it as a toast.
