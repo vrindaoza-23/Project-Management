@@ -28,6 +28,8 @@ class ProjexIssue(Document):
 		if not self.rank:
 			# Append to the end; midpoint inserts happen via the reorder API.
 			self.rank = _next_rank(self.project)
+		# Aging clock starts when the task enters its first status.
+		self.status_changed_on = frappe.utils.now_datetime()
 
 	def validate(self):
 		if self.parent_issue and self.parent_issue == self.name:
@@ -53,6 +55,7 @@ class ProjexIssue(Document):
 				self._notify_status_change()
 				label = frappe.db.get_value("Projex Status", self.status, "status_name") or self.status
 				activity.log(self.project, self.name, "changed status", f"→ {label}")
+				self._track_status_transition(before)
 				self._maybe_spawn_recurrence(before)
 			if before.priority != self.priority:
 				activity.log(self.project, self.name, "changed priority", f"→ {self.priority}")
@@ -86,6 +89,26 @@ class ProjexIssue(Document):
 					user=user, notification_type="status", actor=actor,
 					issue=self.name, snippet=f"moved to {status_label}",
 				)
+
+	def _track_status_transition(self, before):
+		"""Reset the aging clock and count rework when a task moves backward.
+
+		- reopen: came back from a done/cancelled state into an active one
+		  (e.g. customer asked to work on it again).
+		- rework: moved left in the flow while still active (e.g. sent back
+		  from In review = rejection / approval denied). "Left" = lower status
+		  position, so it works regardless of custom status names.
+		"""
+		now = frappe.utils.now_datetime()
+		done = {"completed", "cancelled"}
+		old_cat, old_pos = frappe.db.get_value("Projex Status", before.status, ["category", "position"]) or (None, 0)
+		new_cat, new_pos = frappe.db.get_value("Projex Status", self.status, ["category", "position"]) or (None, 0)
+		updates = {"status_changed_on": now}
+		if old_cat in done and new_cat not in done:
+			updates["reopen_count"] = (self.reopen_count or 0) + 1
+		elif old_cat not in done and (new_pos or 0) < (old_pos or 0):
+			updates["rework_count"] = (self.rework_count or 0) + 1
+		self.db_set(updates)
 
 	def _maybe_spawn_recurrence(self, before):
 		"""When a recurring issue is completed, create its next occurrence and

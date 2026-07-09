@@ -246,6 +246,20 @@ def create_doctypes():
 	], title_field="view_name"):
 		created.append("Projex View")
 
+	# ---- Time Log (native in-app timesheet: hours spent on a task) ----------
+	if _make_doctype("Projex Time Log", [
+		_field("issue", "Task", "Link", options="Projex Issue", reqd=1, in_standard_filter=1, in_list_view=1),
+		_field("project", "Project", "Link", options="Projex Project",
+			   fetch_from="issue.project", in_standard_filter=1),
+		_field("user", "User", "Link", options="User", reqd=1, in_standard_filter=1, in_list_view=1),
+		_field("hours", "Hours", "Float", reqd=1, in_list_view=1),
+		_field("spent_on", "Spent on", "Date", in_list_view=1),
+		_field("activity", "Activity", "Data"),
+		_field("is_billable", "Billable", "Check", default=0),
+		_field("note", "Note", "Small Text"),
+	]):
+		created.append("Projex Time Log")
+
 	return created
 
 

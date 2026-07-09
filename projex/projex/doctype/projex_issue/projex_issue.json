@@ -30,7 +30,10 @@
   "parent_issue",
   "desc_section",
   "description",
-  "checklist"
+  "checklist",
+  "status_changed_on",
+  "reopen_count",
+  "rework_count"
  ],
  "fields": [
   {
@@ -186,6 +189,26 @@
    "label": "Recurrence",
    "options": "None\nDaily\nWeekly\nBiweekly\nMonthly",
    "default": "None"
+  },
+  {
+   "fieldname": "status_changed_on",
+   "fieldtype": "Datetime",
+   "label": "Status changed on",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reopen_count",
+   "fieldtype": "Int",
+   "label": "Reopen count",
+   "default": "0",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rework_count",
+   "fieldtype": "Int",
+   "label": "Rework count",
+   "default": "0",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

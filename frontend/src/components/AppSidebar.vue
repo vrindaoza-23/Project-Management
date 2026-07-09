@@ -119,6 +119,10 @@ async function newTeam() {
 				<Icon name="circle-check-big" :size="16" />
 				<span class="truncate">My tasks</span>
 			</router-link>
+			<router-link v-if="store.canManageUsers" to="/users" class="nav pjx-navrow" :class="{ active: isActive('/users') }">
+				<Icon name="users" :size="16" />
+				<span class="truncate">Users</span>
+			</router-link>
 		</div>
 
 		<div v-if="favoriteProjects.length" class="pjx-side__group">

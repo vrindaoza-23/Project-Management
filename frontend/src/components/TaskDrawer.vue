@@ -9,7 +9,7 @@ import AvatarStack from './AvatarStack.vue'
 import SelectField from './SelectField.vue'
 import LogTimeDialog from './LogTimeDialog.vue'
 import { userName, store } from '@/data/store'
-import { relativeTime, dueLabel, isToday } from '@/utils/format'
+import { relativeTime, dueLabel, isToday, ageChip } from '@/utils/format'
 
 const REACTIONS = ['👍', '💡', '🎉', '👀']
 
@@ -420,7 +420,7 @@ async function removeLink(name) {
 								@keydown.meta.enter="saveDesc"
 							/>
 							<div class="flex g-2" style="margin-top: 6px">
-								<Button variant="solid" theme="gray" @click="saveDesc">Save</Button>
+								<Button variant="solid" theme="blue" @click="saveDesc">Save</Button>
 								<Button variant="subtle" theme="gray" @click="editingDesc = false">Cancel</Button>
 							</div>
 						</div>
@@ -544,7 +544,7 @@ async function removeLink(name) {
 								</div>
 								<div class="pjx-commentbox__foot">
 									<span style="flex: 1" />
-									<Button variant="solid" theme="gray" @click="postComment">Comment</Button>
+									<Button variant="solid" theme="blue" @click="postComment">Comment</Button>
 								</div>
 							</div>
 						</div>
@@ -676,6 +676,15 @@ async function removeLink(name) {
 							placeholder="Never"
 							@change="(v) => changeField('recurrence', v || 'None')"
 						/>
+					</div>
+
+					<div class="pjx-field">
+						<div class="pjx-field__lbl">Pending</div>
+						<div class="pjx-field__val flex" style="gap: 6px; flex-wrap: wrap">
+							<span class="pjx-age" :data-level="ageChip(issue.status_changed_on, issue.modified).level">{{ ageChip(issue.status_changed_on, issue.modified).label || '—' }} in status</span>
+							<span v-if="issue.reopen_count" class="pjx-rwk" title="Times reopened"><Icon name="undo-2" :size="12" />{{ issue.reopen_count }} reopened</span>
+							<span v-if="issue.rework_count" class="pjx-rwk" title="Times sent back"><Icon name="rotate-ccw" :size="12" />{{ issue.rework_count }} reworked</span>
+						</div>
 					</div>
 
 					<div v-if="integration.data?.timesheet" class="pjx-field">

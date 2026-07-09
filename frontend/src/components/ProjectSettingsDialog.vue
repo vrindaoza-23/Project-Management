@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { createResource, Dialog, Button, Avatar, DatePicker } from 'frappe-ui'
 import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
+import NativeSelect from './NativeSelect.vue'
 import { store, reloadBootstrap, userName } from '@/data/store'
 
 const props = defineProps({ open: Boolean, project: { type: String, required: true } })
@@ -27,6 +28,7 @@ const labelDelete = createResource({ url: 'projex.api.delete_label' })
 const cycleCreate = createResource({ url: 'projex.api.create_cycle' })
 const cycleDelete = createResource({ url: 'projex.api.delete_cycle' })
 const linkSaver = createResource({ url: 'projex.api.set_project_links' })
+const erpOptions = createResource({ url: 'projex.api.erpnext_link_options' })
 const deleter = createResource({ url: 'projex.api.delete_project' })
 const archiver = createResource({ url: 'projex.api.archive_project' })
 const duplicator = createResource({ url: 'projex.api.duplicate_project' })
@@ -68,9 +70,15 @@ watch(
 )
 watch(tab, (t) => {
 	if (t === 'members' && detail.data?.project?.can_manage) loadLinks()
+	if (t === 'erpnext' && detail.data?.project?.can_manage && !erpOptions.data) {
+		erpOptions.submit({ project: props.project })
+	}
 })
 
 const canManage = computed(() => detail.data?.project?.can_manage)
+const erpInstalled = computed(() => erpOptions.data?.erpnext !== false)
+const erpProjectOptions = computed(() => [{ value: '', label: '— None —' }, ...(erpOptions.data?.projects || [])])
+const erpCustomerOptions = computed(() => [{ value: '', label: '— None —' }, ...(erpOptions.data?.customers || [])])
 const teamOptions = computed(() => {
 	const ws = detail.data?.project?.workspace
 	return [
@@ -405,15 +413,19 @@ async function duplicate() {
 
 			<!-- ERPNEXT -->
 			<div v-show="tab === 'erpnext'" class="flex col g-3">
-				<p class="t-sm ink-5">Link to ERPNext for the timesheet/billing wedge.</p>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">ERPNext Customer</span>
-					<input v-model="erp.customer" class="input" :disabled="!canManage" placeholder="Customer name" />
-				</label>
-				<label class="flex col g-1">
-					<span class="t-xs ink-5">ERPNext Project</span>
-					<input v-model="erp.project" class="input" :disabled="!canManage" placeholder="Project name" />
-				</label>
+				<template v-if="erpInstalled">
+					<p class="t-sm ink-5">Link an ERPNext Project to roll up cost, revenue and gross margin into the Finance tab, and to log billable time.</p>
+					<label class="flex col g-1">
+						<span class="t-xs ink-5">ERPNext Project</span>
+						<NativeSelect v-model="erp.project" :options="erpProjectOptions" placeholder="Select an ERPNext Project" />
+					</label>
+					<label class="flex col g-1">
+						<span class="t-xs ink-5">ERPNext Customer <span class="ink-4">(optional)</span></span>
+						<NativeSelect v-model="erp.customer" :options="erpCustomerOptions" placeholder="Select a Customer" />
+					</label>
+					<p v-if="!canManage" class="t-xs ink-4">Only a project admin can change these links.</p>
+				</template>
+				<p v-else class="t-sm ink-5">ERPNext is not installed, so project accounting and billable timesheets are unavailable. The flow-time metrics on the Timesheets tab work without it.</p>
 			</div>
 		</template>
 		<template #actions>

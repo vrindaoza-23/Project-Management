@@ -25,6 +25,18 @@ const throughput = computed(() => reports.data?.throughput || [])
 const maxPts = computed(() => Math.max(1, ...velocity.value.map((v) => v.points)))
 const maxThru = computed(() => Math.max(1, ...throughput.value.map((t) => t.count)))
 
+const rework = computed(() => reports.data?.rework || {})
+const agingBuckets = computed(() => {
+	const a = reports.data?.aging || {}
+	return [
+		{ key: 'le3', label: '≤3d', count: a.le3 || 0, cls: 'green' },
+		{ key: 'd4_7', label: '4–7d', count: a.d4_7 || 0, cls: '' },
+		{ key: 'd8_14', label: '8–14d', count: a.d8_14 || 0, cls: 'amber' },
+		{ key: 'gt14', label: '>14d', count: a.gt14 || 0, cls: 'red' },
+	]
+})
+const maxAge = computed(() => Math.max(1, ...agingBuckets.value.map((b) => b.count)))
+
 function weekLabel(iso) {
 	return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
@@ -72,6 +84,29 @@ function weekLabel(iso) {
 			</div>
 
 			<div class="pjx-panel">
+				<div class="pjx-panel__h">Status aging (open tasks, time in status)</div>
+				<div class="pjx-bars">
+					<div v-for="b in agingBuckets" :key="b.key" class="pjx-bar">
+						<div class="pjx-bar__track">
+							<div class="pjx-bar__fill" :class="b.cls" :style="{ height: (b.count / maxAge) * 100 + '%' }" />
+						</div>
+						<div class="pjx-bar__val">{{ b.count }}</div>
+						<div class="pjx-bar__lbl">{{ b.label }}</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="pjx-panel">
+				<div class="pjx-panel__h">Rework rate</div>
+				<div class="pjx-bignum">{{ rework.rework_rate ?? 0 }}<span>% of tasks bounced back</span></div>
+				<div class="flex g-4" style="margin-top: 8px">
+					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.total_reopens ?? 0 }}</b> reopened</div>
+					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.total_rejections ?? 0 }}</b> sent back</div>
+					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.reworked_tasks ?? 0 }}</b> tasks affected</div>
+				</div>
+			</div>
+
+			<div class="pjx-panel">
 				<div class="pjx-panel__h">Throughput (tasks done / week)</div>
 				<div class="pjx-bars">
 					<div v-for="t in throughput" :key="t.week" class="pjx-bar">
@@ -100,6 +135,8 @@ function weekLabel(iso) {
 .pjx-bar__track { width: 28px; flex: 1; display: flex; align-items: flex-end; background: var(--surface-gray-1); border-radius: 6px; overflow: hidden; }
 .pjx-bar__fill { width: 100%; background: var(--blue-500); border-radius: 6px 6px 0 0; min-height: 2px; }
 .pjx-bar__fill.green { background: var(--green-600); }
+.pjx-bar__fill.amber { background: var(--amber-500); }
+.pjx-bar__fill.red { background: var(--red-500); }
 .pjx-bar__val { font-size: 12px; font-weight: 500; color: var(--ink-gray-8); }
 .pjx-bar__lbl { font-size: 10px; color: var(--ink-gray-5); text-align: center; }
 @media (max-width: 900px) { .pjx-rgrid { grid-template-columns: 1fr; } }

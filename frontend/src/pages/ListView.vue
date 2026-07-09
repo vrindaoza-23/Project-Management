@@ -8,7 +8,7 @@ import LabelChip from '@/components/LabelChip.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
 import LivePill from '@/components/LivePill.vue'
 import QuickAdd from '@/components/QuickAdd.vue'
-import { isToday, dueLabel, relativeTime } from '@/utils/format'
+import { isToday, dueLabel, relativeTime, ageChip } from '@/utils/format'
 
 const props = defineProps({
 	projectKey: { type: String, required: true },
@@ -92,6 +92,7 @@ const groups = computed(() => {
 			<span class="r">Pts</span>
 			<span class="r">Due</span>
 			<span class="r">Updated</span>
+			<span class="r">Pending</span>
 			<span class="r">Assignees</span>
 		</div>
 
@@ -158,6 +159,9 @@ const groups = computed(() => {
 						<span v-else class="pjx-dim">–</span>
 					</span>
 					<span class="pjx-cell r"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></span>
+					<span class="pjx-cell r">
+						<span class="pjx-age" :data-level="ageChip(it.status_changed_on, it.modified).level" :title="`In current status ${ageChip(it.status_changed_on, it.modified).label}`">{{ ageChip(it.status_changed_on, it.modified).label }}</span>
+					</span>
 					<span class="pjx-cell r">
 						<AvatarStack v-if="it.assignees.length" :users="it.assignees" :size="22" />
 						<span v-else class="pjx-noass">–</span>

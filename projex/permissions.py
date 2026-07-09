@@ -6,12 +6,13 @@
 A user can access a Projex Project if any of:
   - they are a System Manager / Projex Admin,
   - they are the project lead,
-  - they are listed in the project's members child table,
-  - they are a member of the project's workspace.
+  - they are listed in the project's members child table.
 
-Issues, comments, cycles, etc. inherit access from their project. Enforced
-server-side via `permission_query_conditions` (list filtering) and
-`has_permission` (single-doc gating), registered in hooks.py.
+Access is strictly per-project: workspace membership is a grouping layer only
+and does NOT grant access to the workspace's projects. Issues, comments,
+cycles, etc. inherit access from their project. Enforced server-side via
+`permission_query_conditions` (list filtering) and `has_permission`
+(single-doc gating), registered in hooks.py.
 """
 
 import frappe
@@ -38,17 +39,6 @@ def accessible_projects(user=None):
 		"Projex Project Member", filters={"user": user}, fields=["parent"]
 	)
 	projects.update(r.parent for r in member_rows)
-	# Workspace membership grants access to all that workspace's projects.
-	ws_rows = frappe.get_all(
-		"Projex Workspace Member", filters={"user": user}, fields=["parent"]
-	)
-	workspaces = [r.parent for r in ws_rows]
-	if workspaces:
-		projects.update(
-			frappe.get_all(
-				"Projex Project", filters={"workspace": ["in", workspaces]}, pluck="name"
-			)
-		)
 	return projects
 
 

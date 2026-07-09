@@ -1,38 +1,28 @@
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import Icon from './Icon.vue'
 import PriorityBars from './PriorityBars.vue'
 import LabelChip from './LabelChip.vue'
 import AvatarStack from './AvatarStack.vue'
 import LivePill from './LivePill.vue'
-import { isToday, dueLabel } from '@/utils/format'
+import { isToday, dueLabel, ageChip } from '@/utils/format'
 
 const props = defineProps({ issue: { type: Object, required: true }, presence: { type: Array, default: () => [] } })
-const emit = defineEmits(['open'])
+const emit = defineEmits(['pickup'])
 
-// Guard so a drag gesture doesn't also fire the open click on mouseup.
-const dragged = ref(false)
-function onDragStart() {
-	dragged.value = true
-}
-function onDragEnd() {
-	// Reset on the next tick so the trailing click (if any) is swallowed.
-	setTimeout(() => (dragged.value = false), 0)
-}
-function onClick() {
-	if (dragged.value) return
-	emit('open', props.issue.name)
+// Pending age (time in current status) — only surface once it's been sitting ≥3 days.
+const age = computed(() => ageChip(props.issue.status_changed_on, props.issue.modified))
+
+// Pointer-based drag: the parent (BoardView) owns the gesture. We just hand it
+// the card element + issue on pointer-down; it decides click-to-open vs. drag.
+function onPointerDown(e) {
+	if (e.button !== 0) return // primary button only
+	emit('pickup', { issue: props.issue, event: e, el: e.currentTarget })
 }
 </script>
 
 <template>
-	<div
-		class="pjx-card"
-		draggable="true"
-		@dragstart="onDragStart"
-		@dragend="onDragEnd"
-		@click="onClick"
-	>
+	<div class="pjx-card" @pointerdown="onPointerDown">
 		<div class="pjx-card__top">
 			<PriorityBars :priority="issue.priority" />
 			<span
@@ -60,7 +50,18 @@ function onClick() {
 				><Icon name="message-square" :size="13" />{{ issue.comment_count }}</span
 			>
 			<span v-if="issue.estimate" class="pjx-pts">{{ issue.estimate }}</span>
+			<span
+				v-if="issue.reopen_count"
+				class="pjx-rwk"
+				:title="`Reopened ${issue.reopen_count}×`"
+			><Icon name="undo-2" :size="12" />{{ issue.reopen_count }}</span>
+			<span
+				v-if="issue.rework_count"
+				class="pjx-rwk"
+				:title="`Sent back ${issue.rework_count}×`"
+			><Icon name="rotate-ccw" :size="12" />{{ issue.rework_count }}</span>
 			<span style="flex: 1" />
+			<span v-if="age.days >= 3" class="pjx-age" :data-level="age.level" :title="`In status ${age.label}`">{{ age.label }}</span>
 			<AvatarStack v-if="issue.assignees.length" :users="issue.assignees" :size="20" />
 		</div>
 	</div>

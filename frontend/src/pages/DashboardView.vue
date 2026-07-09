@@ -37,7 +37,7 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 	<div class="pjx-dash">
 		<div class="pjx-dash__bar">
 			<h3 class="pjx-dash__title">Issues dashboard</h3>
-			<Button variant="solid" theme="gray" @click="openReportBug(projectKey)">
+			<Button variant="solid" theme="blue" @click="openReportBug(projectKey)">
 				<template #prefix><Icon name="bug" :size="14" /></template>Report bug
 			</Button>
 		</div>
@@ -87,13 +87,21 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 			</div>
 
 			<div class="pjx-panel">
-				<div class="pjx-panel__h">Workload (open per assignee)</div>
-				<div v-for="w in workload" :key="w.user" class="pjx-mrow">
-					<Avatar :label="w.name_full" size="sm" />
-					<span style="flex: 1">{{ w.name_full }}</span>
-					<span class="pjx-dim">{{ w.open }}</span>
+				<div class="pjx-panel__h">
+					Workload &amp; capacity
+					<span class="pjx-dim t-xs" style="font-weight: 400">— open story points per member (avg {{ d.workload_avg_points ?? 0 }})</span>
 				</div>
-				<div v-if="!workload.length" class="pjx-dim t-sm">No open assigned work.</div>
+				<div v-for="w in workload" :key="w.user" class="pjx-wl">
+					<Avatar :label="w.name_full" size="sm" />
+					<span class="pjx-wl__name">{{ w.name_full }}</span>
+					<span v-if="w.level === 'over'" class="pjx-wl__flag over">Overloaded</span>
+					<span v-else-if="w.level === 'under'" class="pjx-wl__flag under">{{ w.open ? 'Light' : 'Idle' }}</span>
+					<div class="pjx-wl__bar">
+						<span :class="w.level" :style="{ width: ((d.workload_max_points ? w.points / d.workload_max_points : 0) * 100) + '%' }" />
+					</div>
+					<span class="pjx-wl__n">{{ w.points }} pt · {{ w.open }}</span>
+				</div>
+				<div v-if="!workload.length" class="pjx-dim t-sm">No project members yet.</div>
 			</div>
 		</div>
 	</div>
@@ -116,6 +124,16 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 .pjx-mrow__dot { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .pjx-mrow__bar { width: 120px; height: 6px; border-radius: 4px; background: var(--surface-gray-2); overflow: hidden; flex: none; }
 .pjx-mrow__bar span { display: block; height: 100%; border-radius: 4px; }
+.pjx-wl { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; color: var(--ink-gray-8); }
+.pjx-wl__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pjx-wl__bar { width: 110px; height: 6px; border-radius: 4px; background: var(--surface-gray-2); overflow: hidden; flex: none; }
+.pjx-wl__bar span { display: block; height: 100%; border-radius: 4px; background: var(--blue-500); }
+.pjx-wl__bar span.over { background: var(--red-500); }
+.pjx-wl__bar span.under { background: var(--amber-500); }
+.pjx-wl__n { width: 64px; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-gray-6); flex: none; }
+.pjx-wl__flag { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 999px; flex: none; }
+.pjx-wl__flag.over { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
+.pjx-wl__flag.under { background: var(--surface-amber-2, #fef3c7); color: var(--ink-amber-3, #b06000); }
 .pjx-bugrow { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 7px; cursor: pointer; font-size: 13px; }
 .pjx-bugrow:hover { background: var(--surface-gray-1); }
 .pjx-bugrow__t { flex: 1; color: var(--ink-gray-8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

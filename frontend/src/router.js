@@ -4,6 +4,7 @@ const routes = [
 	{ path: '/', redirect: '/inbox' },
 	{ path: '/inbox', name: 'Inbox', component: () => import('@/pages/InboxView.vue') },
 	{ path: '/my-tasks', name: 'MyTasks', component: () => import('@/pages/MyTasksView.vue') },
+	{ path: '/users', name: 'Users', component: () => import('@/pages/UsersView.vue') },
 	{ path: '/roadmap', name: 'Roadmap', component: () => import('@/pages/RoadmapView.vue') },
 	{
 		path: '/projects/:key',

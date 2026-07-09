@@ -1,7 +1,6 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onBeforeUnmount } from 'vue'
 import { createResource } from 'frappe-ui'
-import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import BoardCard from '@/components/BoardCard.vue'
 
@@ -12,7 +11,6 @@ const props = defineProps({
 })
 const emit = defineEmits(['open', 'changed'])
 
-const dragName = ref(null)
 const overStatus = ref(null)
 
 const columns = computed(() =>
@@ -22,43 +20,93 @@ const columns = computed(() =>
 )
 
 const updater = createResource({ url: 'projex.api.update_issue' })
-const reorder = createResource({ url: 'projex.api.reorder_issue' })
 
-function onDragStart(e, name) {
-	dragName.value = name
-	// Setting dataTransfer is required for drag to initiate in Safari/Firefox.
-	if (e && e.dataTransfer) {
-		e.dataTransfer.effectAllowed = 'move'
-		try {
-			e.dataTransfer.setData('text/plain', name)
-		} catch (_) {
-			/* some browsers throw if called outside dragstart — ignore */
-		}
+// --------------------------------------------------------------------------- //
+// Pointer-based drag — reliable on trackpads & every browser, smooth on video.
+// The native HTML5 DnD API (draggable=true) was flaky to pick up on trackpads
+// and rendered an ugly default ghost; this owns the gesture end-to-end.
+// --------------------------------------------------------------------------- //
+const THRESHOLD = 5 // px of movement before a press becomes a drag (vs. a click)
+let drag = null // { issue, srcEl, startX, startY, offX, offY, ghost, started }
+
+function onPickup({ issue, event, el }) {
+	drag = {
+		issue,
+		srcEl: el,
+		startX: event.clientX,
+		startY: event.clientY,
+		offX: 0,
+		offY: 0,
+		ghost: null,
+		started: false,
+	}
+	window.addEventListener('pointermove', onMove)
+	window.addEventListener('pointerup', onUp, { once: true })
+}
+
+function onMove(e) {
+	if (!drag) return
+	if (!drag.started) {
+		if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < THRESHOLD) return
+		beginGhost(e)
+	}
+	moveGhost(e)
+	overStatus.value = columnAt(e.clientX, e.clientY)
+}
+
+function beginGhost(e) {
+	drag.started = true
+	document.body.classList.add('pjx-dragging')
+	const rect = drag.srcEl.getBoundingClientRect()
+	drag.offX = e.clientX - rect.left
+	drag.offY = e.clientY - rect.top
+	const g = drag.srcEl.cloneNode(true)
+	g.classList.add('pjx-card--ghost')
+	g.style.width = `${rect.width}px`
+	document.body.appendChild(g)
+	drag.ghost = g
+	drag.srcEl.classList.add('pjx-card--dragsrc')
+}
+
+function moveGhost(e) {
+	if (drag.ghost) {
+		drag.ghost.style.transform = `translate(${e.clientX - drag.offX}px, ${e.clientY - drag.offY}px) rotate(2.5deg)`
 	}
 }
 
-function onDragEnd() {
-	dragName.value = null
-	overStatus.value = null
+// Which column is under the cursor? Ghost has pointer-events:none so it's skipped.
+function columnAt(x, y) {
+	const el = document.elementFromPoint(x, y)
+	const col = el && el.closest('[data-status]')
+	return col ? col.getAttribute('data-status') : null
 }
 
-function draggedName(e) {
-	return dragName.value || (e && e.dataTransfer ? e.dataTransfer.getData('text/plain') : null)
-}
+async function onUp(e) {
+	window.removeEventListener('pointermove', onMove)
+	const d = drag
+	drag = null
+	if (!d) return
 
-// Drop anywhere on a column: move the card to that column's status (any direction).
-async function onDrop(statusName, e) {
+	// A press that never crossed the threshold is a click → open the task.
+	if (!d.started) {
+		emit('open', d.issue.name)
+		return
+	}
+
+	if (d.ghost) d.ghost.remove()
+	d.srcEl.classList.remove('pjx-card--dragsrc')
+	document.body.classList.remove('pjx-dragging')
+
+	const target = columnAt(e.clientX, e.clientY)
 	overStatus.value = null
-	const name = draggedName(e)
-	dragName.value = null
-	if (!name) return
-	const issue = props.issues.find((i) => i.name === name)
-	if (!issue || issue.status === statusName) return
+	if (!target || target === d.issue.status) return
 
+	const issue = props.issues.find((i) => i.name === d.issue.name)
+	if (!issue) return
 	const prev = issue.status
-	issue.status = statusName // optimistic
+	issue.status = target // optimistic
 	try {
-		await updater.submit({ name, fields: JSON.stringify({ status: statusName }) })
+		await updater.submit({ name: issue.name, fields: JSON.stringify({ status: target }) })
 		emit('changed')
 	} catch (err) {
 		issue.status = prev // rollback
@@ -66,31 +114,11 @@ async function onDrop(statusName, e) {
 	}
 }
 
-// Drop directly onto a card: adopt its status and reorder before it.
-async function onCardDrop(targetIssue, e) {
-	const name = draggedName(e)
-	dragName.value = null
-	overStatus.value = null
-	if (!name || name === targetIssue.name) return
-	const moving = props.issues.find((i) => i.name === name)
-	if (!moving) return
-	const col = columns.value.find((c) => c.status.name === targetIssue.status)
-	const idx = col.items.findIndex((i) => i.name === targetIssue.name)
-	const after = idx > 0 ? col.items[idx - 1].name : null
-	const prev = moving.status
-	if (moving.status !== targetIssue.status) {
-		moving.status = targetIssue.status // optimistic
-		try {
-			await updater.submit({ name, fields: JSON.stringify({ status: targetIssue.status }) })
-		} catch (err) {
-			moving.status = prev
-			console.error('[projex] status update failed', err)
-			return
-		}
-	}
-	await reorder.submit({ issue: name, before: targetIssue.name, after }).catch(() => {})
-	emit('changed')
-}
+onBeforeUnmount(() => {
+	window.removeEventListener('pointermove', onMove)
+	if (drag && drag.ghost) drag.ghost.remove()
+	document.body.classList.remove('pjx-dragging')
+})
 </script>
 
 <template>
@@ -100,11 +128,8 @@ async function onCardDrop(targetIssue, e) {
 				v-for="col in columns"
 				:key="col.status.name"
 				class="pjx-col"
+				:data-status="col.status.name"
 				:class="{ 'is-over': overStatus === col.status.name }"
-				@dragover.prevent="overStatus = col.status.name"
-				@dragenter.prevent="overStatus = col.status.name"
-				@dragleave.self="overStatus = null"
-				@drop.prevent="onDrop(col.status.name, $event)"
 			>
 				<div class="pjx-col__head">
 					<StatusDot :status="col.status" />
@@ -117,11 +142,7 @@ async function onCardDrop(targetIssue, e) {
 						:key="it.name"
 						:issue="it"
 						:presence="presence[it.name] || []"
-						@dragstart="onDragStart($event, it.name)"
-						@dragend="onDragEnd"
-						@drop.prevent.stop="onCardDrop(it, $event)"
-						@dragover.prevent.stop
-						@open="emit('open', $event)"
+						@pickup="onPickup"
 					/>
 					<div v-if="!col.items.length" class="pjx-col__empty">Drop tasks here</div>
 				</div>
@@ -132,7 +153,8 @@ async function onCardDrop(targetIssue, e) {
 
 <style scoped>
 .pjx-col.is-over {
-	outline: 2px solid var(--outline-blue-1);
+	outline: 2px solid var(--outline-blue-2, var(--blue-400));
 	outline-offset: -2px;
+	background: var(--surface-blue-1, rgba(59, 130, 246, 0.04));
 }
 </style>

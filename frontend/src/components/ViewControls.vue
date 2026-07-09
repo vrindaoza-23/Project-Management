@@ -6,9 +6,10 @@ import MultiSelectPopover from './MultiSelectPopover.vue'
 
 const props = defineProps({
 	statuses: { type: Array, default: () => [] },
-	state: { type: Object, required: true }, // { statusFilter:[], assigneeMe, sortBy, groupBy }
+	state: { type: Object, required: true }, // { statusFilter:[], assignees:[], sortBy, groupBy }
 	showGroup: { type: Boolean, default: true },
 	savedViews: { type: Array, default: () => [] }, // [{ name, view_name, view_type, config }]
+	assigneeOptions: { type: Array, default: () => [] }, // [{ value, label }]
 })
 const emit = defineEmits(['update', 'export', 'save-view', 'apply-view', 'delete-view'])
 
@@ -73,14 +74,18 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 					</span>
 				</template>
 			</MultiSelectPopover>
-			<button
-				class="pjx-chip"
-				:class="{ 'pjx-chip--add': !state.assigneeMe }"
-				@click="set({ assigneeMe: !state.assigneeMe })"
+			<MultiSelectPopover
+				:options="assigneeOptions"
+				:model-value="state.assignees || []"
+				@change="(v) => set({ assignees: v })"
 			>
-				<span class="pjx-chip__k">Assignee</span>
-				<span class="pjx-chip__v">{{ state.assigneeMe ? 'Me' : 'Anyone' }}</span>
-			</button>
+				<template #trigger>
+					<span class="pjx-chip">
+						<span class="pjx-chip__k">Assignee</span>
+						<span class="pjx-chip__v">{{ (state.assignees || []).length ? (state.assignees.length + ' selected') : 'Anyone' }}</span>
+					</span>
+				</template>
+			</MultiSelectPopover>
 		</div>
 		<div class="pjx-list__bar-right">
 			<Dropdown :options="viewOptions">

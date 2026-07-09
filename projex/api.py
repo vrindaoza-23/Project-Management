@@ -13,7 +13,7 @@ import re
 from datetime import date
 
 import frappe
-from frappe.utils import add_days, getdate, nowdate
+from frappe.utils import add_days, getdate, nowdate, now_datetime
 
 from projex import ai
 from projex.permissions import accessible_projects
@@ -22,6 +22,7 @@ from projex.realtime import emit_presence
 ISSUE_FIELDS = [
 	"name", "issue_id", "title", "project", "status", "priority", "issue_type",
 	"due_date", "start_date", "estimate", "rank", "cycle", "reporter", "parent_issue", "modified",
+	"creation", "status_changed_on", "reopen_count", "rework_count",
 ]
 
 
@@ -148,6 +149,9 @@ def get_project_detail(project):
 		members.append({
 			"user": m.user, "role": m.role,
 			"full_name": frappe.db.get_value("User", m.user, "full_name") or m.user,
+			"is_all_access": bool(
+				set(frappe.get_roles(m.user)) & {"System Manager", "Projex Admin", "Administrator"}
+			),
 		})
 	labels = frappe.get_all(
 		"Projex Label", filters={"project": project}, fields=["name", "label_name", "color"]
@@ -163,11 +167,223 @@ def get_project_detail(project):
 			"workspace": doc.workspace, "team": doc.team, "description": doc.description,
 			"is_archived": doc.is_archived,
 			"can_manage": _can_manage_project(project),
+			"can_grant_all_access": bool(
+				set(frappe.get_roles()) & {"System Manager", "Projex Admin"}
+			),
 		},
 		"members": members,
 		"labels": labels,
 		"cycles": cycles,
 	}
+
+
+# --------------------------------------------------------------------------- #
+# People (per-project member management + activity)
+# --------------------------------------------------------------------------- #
+OPEN_CATEGORIES = {"backlog", "unstarted", "started"}
+
+
+def _status_categories():
+	"""Map of status name -> category (global + project-scoped)."""
+	return {
+		s.name: s.category
+		for s in frappe.get_all("Projex Status", fields=["name", "category"])
+	}
+
+
+@frappe.whitelist()
+def get_users_overview():
+	"""All app users with a project-allocation + activity rollup, for the global
+	Users management page. Restricted to people who manage at least one project."""
+	if not _can_manage_any():
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	users = frappe.get_all(
+		"User",
+		filters={"enabled": 1, "user_type": "System User"},
+		fields=["name", "full_name", "user_image"],
+		order_by="full_name asc",
+		limit=0,
+	)
+
+	# Project allocation count (membership parents ∪ lead) per user — 2 queries.
+	proj_set = {}
+	for m in frappe.get_all("Projex Project Member", fields=["parent", "user"]):
+		proj_set.setdefault(m.user, set()).add(m.parent)
+	for p in frappe.get_all("Projex Project", fields=["name", "lead"]):
+		if p.lead:
+			proj_set.setdefault(p.lead, set()).add(p.name)
+
+	# Cross-project open-task load + last activity — batched scans.
+	cats = _status_categories()
+	issues = frappe.get_all("Projex Issue", fields=["name", "status"], limit=0)
+	status_of = {i.name: i.status for i in issues}
+	open_load, assigned_total = {}, {}
+	for r in frappe.get_all("Projex Issue Assignee", fields=["parent", "user"]):
+		assigned_total[r.user] = assigned_total.get(r.user, 0) + 1
+		if cats.get(status_of.get(r.parent)) in OPEN_CATEGORIES:
+			open_load[r.user] = open_load.get(r.user, 0) + 1
+
+	last_act = {}
+	for a in frappe.get_all(
+		"Projex Activity", fields=["actor", "creation"], order_by="creation desc", limit=0
+	):
+		if a.actor not in last_act:
+			last_act[a.actor] = a.creation
+
+	privileged = {"System Manager", "Projex Admin", "Administrator"}
+	out = []
+	for u in users:
+		out.append({
+			"user": u.name,
+			"full_name": u.full_name or u.name,
+			"user_image": u.user_image,
+			"project_count": len(proj_set.get(u.name, ())),
+			"open_tasks": open_load.get(u.name, 0),
+			"assigned": assigned_total.get(u.name, 0),
+			"is_all_access": bool(set(frappe.get_roles(u.name)) & privileged),
+			"last_activity": last_act.get(u.name),
+		})
+	return {
+		"can_grant_all_access": bool(set(frappe.get_roles()) & {"System Manager", "Projex Admin"}),
+		"users": out,
+	}
+
+
+@frappe.whitelist()
+def get_user_detail(user):
+	"""One user's project allocations + cross-project activity for the Users page."""
+	if not _can_manage_any():
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	cats = _status_categories()
+	status_name = {
+		s.name: s.status_name
+		for s in frappe.get_all("Projex Status", fields=["name", "status_name"])
+	}
+	# project meta (name -> {project_name, key})
+	pmeta = {
+		p.name: p for p in frappe.get_all(
+			"Projex Project", fields=["name", "project_name", "key", "lead"], limit=0
+		)
+	}
+
+	# Allocations: projects where the user is a member (role) or lead.
+	role_in = {
+		m.parent: m.role for m in frappe.get_all(
+			"Projex Project Member", filters={"user": user}, fields=["parent", "role"]
+		)
+	}
+	member_projects = set(role_in)
+	for name, p in pmeta.items():
+		if p.lead == user:
+			member_projects.add(name)
+
+	projects = []
+	for name in sorted(member_projects):
+		p = pmeta.get(name)
+		if not p:
+			continue
+		projects.append({
+			"project": name,
+			"project_name": p.project_name,
+			"key": p.key,
+			"role": role_in.get(name) or ("Lead" if p.lead == user else "Member"),
+			"can_manage": _can_manage_project(name),
+		})
+
+	# Projects the actor can manage and where the user is NOT already a member.
+	allocatable = [
+		{"value": name, "label": p.project_name}
+		for name, p in pmeta.items()
+		if name not in member_projects and _can_manage_project(name)
+	]
+	allocatable.sort(key=lambda x: (x["label"] or "").lower())
+
+	# Cross-project assigned tasks (readable status + project key).
+	my_issue_names = {
+		r.parent for r in frappe.get_all(
+			"Projex Issue Assignee", filters={"user": user}, fields=["parent"]
+		)
+	}
+	assigned = []
+	if my_issue_names:
+		for it in frappe.get_all(
+			"Projex Issue", filters={"name": ["in", list(my_issue_names)]},
+			fields=["name", "issue_id", "title", "status", "priority", "project"], limit=0,
+		):
+			pm = pmeta.get(it.project)
+			assigned.append({
+				"name": it.name, "issue_id": it.issue_id, "title": it.title,
+				"status_name": status_name.get(it.status) or it.status,
+				"category": cats.get(it.status),
+				"project_key": pm.key if pm else it.project,
+			})
+
+	def _key_for_issue(issue):
+		if not issue:
+			return None
+		proj = frappe.db.get_value("Projex Issue", issue, "project")
+		pm = pmeta.get(proj)
+		return pm.key if pm else proj
+
+	activity = frappe.get_all(
+		"Projex Activity", filters={"actor": user},
+		fields=["name", "action", "detail", "issue", "project", "creation"],
+		order_by="creation desc", limit=30,
+	)
+	for a in activity:
+		pm = pmeta.get(a.project)
+		a["project_key"] = pm.key if pm else a.project
+		a["issue_id"] = frappe.db.get_value("Projex Issue", a.issue, "issue_id") if a.issue else None
+
+	def _snippet(html):
+		text = frappe.utils.strip_html(html or "").strip()
+		return (text[:140] + "…") if len(text) > 140 else text
+
+	comments = frappe.get_all(
+		"Projex Comment", filters={"owner": user},
+		fields=["name", "issue", "content", "creation"],
+		order_by="creation desc", limit=20,
+	)
+	for c in comments:
+		c["issue_id"] = frappe.db.get_value("Projex Issue", c.issue, "issue_id") if c.issue else None
+		c["project_key"] = _key_for_issue(c.issue)
+		c["snippet"] = _snippet(c.content)
+		c.pop("content", None)
+
+	# Mentions of this user across all comments (regex on @email).
+	mentions = []
+	for c in frappe.get_all(
+		"Projex Comment", fields=["name", "issue", "content", "creation", "owner"],
+		order_by="creation desc", limit=400,
+	):
+		if f"@{user}" in (c.content or ""):
+			mentions.append({
+				"name": c.name, "issue": c.issue,
+				"issue_id": frappe.db.get_value("Projex Issue", c.issue, "issue_id") if c.issue else None,
+				"project_key": _key_for_issue(c.issue),
+				"by": frappe.db.get_value("User", c.owner, "full_name") or c.owner,
+				"snippet": _snippet(c.content), "creation": c.creation,
+			})
+		if len(mentions) >= 20:
+			break
+
+	privileged = {"System Manager", "Projex Admin", "Administrator"}
+	return {
+		"user": user,
+		"full_name": frappe.db.get_value("User", user, "full_name") or user,
+		"user_image": frappe.db.get_value("User", user, "user_image"),
+		"is_all_access": bool(set(frappe.get_roles(user)) & privileged),
+		"can_grant_all_access": bool(set(frappe.get_roles()) & {"System Manager", "Projex Admin"}),
+		"projects": projects,
+		"allocatable": allocatable,
+		"assigned": assigned,
+		"activity": activity,
+		"comments": comments,
+		"mentions": mentions,
+	}
+
 
 
 def _can_manage_project(project):
@@ -186,10 +402,27 @@ def _can_manage_project(project):
 	return False
 
 
+def _can_manage_any(user=None):
+	"""True if the user can manage at least one project (privileged, a lead, or an
+	Admin member somewhere). Gates the global Users management page."""
+	user = user or frappe.session.user
+	roles = set(frappe.get_roles(user))
+	if roles & {"System Manager", "Projex Admin"}:
+		return True
+	if frappe.db.exists("Projex Project", {"lead": user}):
+		return True
+	return bool(frappe.db.exists("Projex Project Member", {"user": user, "role": "Admin"}))
+
+
+MEMBER_ROLES = {"Admin", "Member", "Guest"}
+
+
 @frappe.whitelist()
 def add_member(parent_doctype, parent, user, role="Member"):
 	if parent_doctype not in ("Projex Project", "Projex Workspace"):
 		frappe.throw("Invalid parent")
+	if role not in MEMBER_ROLES:
+		frappe.throw("Invalid role")
 	if parent_doctype == "Projex Project" and not _can_manage_project(parent):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc(parent_doctype, parent)
@@ -200,6 +433,47 @@ def add_member(parent_doctype, parent, user, role="Member"):
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def update_member_role(parent_doctype, parent, user, role):
+	"""Change an existing member's role (Admin/Member/Guest). A project member
+	with the Admin role can manage the project (see _can_manage_project), so this
+	is how a manager promotes a co-manager or demotes back to Member/Guest."""
+	if parent_doctype not in ("Projex Project", "Projex Workspace"):
+		frappe.throw("Invalid parent")
+	if role not in MEMBER_ROLES:
+		frappe.throw("Invalid role")
+	if parent_doctype == "Projex Project" and not _can_manage_project(parent):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc(parent_doctype, parent)
+	row = next((m for m in doc.get("members") if m.user == user), None)
+	if not row:
+		frappe.throw("Not a member")
+	row.role = role
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def set_all_access(user, enabled):
+	"""Grant or revoke the global Projex Admin role (visibility into EVERY
+	project). Restricted to System Manager / Projex Admin — a mere project
+	admin must not be able to hand out all-project access."""
+	if not (set(frappe.get_roles()) & {"System Manager", "Projex Admin"}):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	enabled = frappe.parse_json(enabled) if isinstance(enabled, str) else enabled
+	doc = frappe.get_doc("User", user)
+	has_role = any(r.role == "Projex Admin" for r in doc.roles)
+	if enabled and not has_role:
+		doc.append("roles", {"role": "Projex Admin"})
+		doc.save(ignore_permissions=True)
+	elif not enabled and has_role:
+		doc.set("roles", [r for r in doc.roles if r.role != "Projex Admin"])
+		doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True, "all_access": bool(enabled)}
 
 
 @frappe.whitelist()
@@ -386,12 +660,13 @@ def delete_label(name):
 
 
 @frappe.whitelist()
-def create_cycle(project, cycle_name, start_date=None, end_date=None, state="Upcoming"):
+def create_cycle(project, cycle_name, start_date=None, end_date=None, state="Upcoming", goal=None):
 	if not _can_manage_project(project):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc({
 		"doctype": "Projex Cycle", "cycle_name": cycle_name, "project": project,
-		"start_date": start_date or None, "end_date": end_date or None, "state": state,
+		"start_date": start_date or None, "end_date": end_date or None,
+		"state": state, "goal": goal or None,
 	}).insert(ignore_permissions=True)
 	frappe.db.commit()
 	return {"name": doc.name, "cycle_name": doc.cycle_name}
@@ -399,7 +674,7 @@ def create_cycle(project, cycle_name, start_date=None, end_date=None, state="Upc
 
 @frappe.whitelist()
 def update_cycle(name, fields):
-	"""Edit a cycle/sprint (rename, dates, or state: Upcoming/Active/Completed)."""
+	"""Edit a cycle/sprint (rename, dates, goal, or state: Upcoming/Active/Completed)."""
 	import json
 	if isinstance(fields, str):
 		fields = json.loads(fields)
@@ -407,12 +682,63 @@ def update_cycle(name, fields):
 	if project and not _can_manage_project(project):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc("Projex Cycle", name)
-	for k in ("cycle_name", "start_date", "end_date", "state"):
+	for k in ("cycle_name", "start_date", "end_date", "state", "goal"):
 		if k in fields:
 			doc.set(k, fields[k] or None)
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 	return {"name": doc.name, "state": doc.state}
+
+
+@frappe.whitelist()
+def start_sprint(cycle, start_date=None, end_date=None, goal=None):
+	"""Begin a sprint: stamp dates/goal and flip the cycle to Active."""
+	project = frappe.db.get_value("Projex Cycle", cycle, "project")
+	if not project or not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc("Projex Cycle", cycle)
+	if start_date:
+		doc.start_date = start_date
+	if end_date:
+		doc.end_date = end_date
+	if goal is not None:
+		doc.goal = goal or None
+	doc.state = "Active"
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"name": doc.name, "state": doc.state}
+
+
+@frappe.whitelist()
+def complete_sprint(cycle, carryover_to=None):
+	"""Finish a sprint: mark it Completed and move every UNFINISHED issue (status
+	category not completed/cancelled) to the backlog (carryover_to=None) or to
+	another cycle. Returns how many were done vs carried over."""
+	project = frappe.db.get_value("Projex Cycle", cycle, "project")
+	if not project or not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	if carryover_to:
+		dest_project = frappe.db.get_value("Projex Cycle", carryover_to, "project")
+		if dest_project != project:
+			frappe.throw("Carryover target must be in the same project")
+
+	cats = _status_categories()
+	done_cats = {"completed", "cancelled"}
+	issues = frappe.get_all(
+		"Projex Issue", filters={"project": project, "cycle": cycle},
+		fields=["name", "status"], limit=0,
+	)
+	done = carried = 0
+	for it in issues:
+		if cats.get(it.status) in done_cats:
+			done += 1
+		else:
+			frappe.db.set_value("Projex Issue", it.name, "cycle", carryover_to or None)
+			carried += 1
+
+	frappe.db.set_value("Projex Cycle", cycle, "state", "Completed")
+	frappe.db.commit()
+	return {"ok": True, "done": done, "carried": carried, "carryover_to": carryover_to or None}
 
 
 @frappe.whitelist()
@@ -597,6 +923,7 @@ def bootstrap():
 		"users": users,
 		"counts": counts,
 		"favorites": favorites,
+		"can_manage_users": _can_manage_any(),
 	}
 
 
@@ -779,6 +1106,8 @@ def get_issue(name):
 			"recurrence": doc.recurrence or "None",
 			"parent_issue": doc.parent_issue, "creation": str(doc.creation),
 			"modified": str(doc.modified),
+			"status_changed_on": str(doc.status_changed_on) if doc.status_changed_on else None,
+			"reopen_count": doc.reopen_count or 0, "rework_count": doc.rework_count or 0,
 			"assignees": [a.user for a in doc.assignees],
 		},
 		"status_meta": status,
@@ -933,14 +1262,14 @@ def get_pickers(project):
 	)
 	cycles = frappe.get_all(
 		"Projex Cycle", filters={"project": project},
-		fields=["name", "cycle_name", "state", "start_date", "end_date"],
+		fields=["name", "cycle_name", "state", "start_date", "end_date", "goal"],
 		order_by="start_date desc",
 	)
 	users = frappe.get_all(
 		"User", filters={"enabled": 1, "user_type": "System User"},
 		fields=["name", "full_name", "user_image"], limit=200,
 	)
-	return {"labels": labels, "cycles": cycles, "users": users}
+	return {"labels": labels, "cycles": cycles, "users": users, "can_manage": _can_manage_project(project)}
 
 
 @frappe.whitelist()
@@ -1149,12 +1478,53 @@ def get_project_reports(project):
 	days = [(getdate(d.modified) - getdate(d.creation)).days for d in done]
 	avg_cycle = round(sum(days) / len(days), 1) if days else 0
 
+	# aging: how long OPEN tasks have sat in their current status (time-in-status)
+	open_cats = ["backlog", "unstarted", "started"]
+	open_statuses = [
+		s.name for s in frappe.get_all(
+			"Projex Status", filters={"category": ["in", open_cats]}, fields=["name"]
+		)
+	]
+	aging = {"le3": 0, "d4_7": 0, "d8_14": 0, "gt14": 0}
+	open_rows = frappe.get_all("Projex Issue", filters={
+		**base, "status": ["in", open_statuses or [""]]},
+		fields=["status_changed_on", "modified"], limit=0) if open_statuses else []
+	now = now_datetime()
+	for r in open_rows:
+		ref = r.status_changed_on or r.modified
+		d = (now - ref).days if ref else 0
+		if d <= 3:
+			aging["le3"] += 1
+		elif d <= 7:
+			aging["d4_7"] += 1
+		elif d <= 14:
+			aging["d8_14"] += 1
+		else:
+			aging["gt14"] += 1
+
+	# rework: how often tasks bounced backward (reopened / rejected)
+	counts = frappe.get_all(
+		"Projex Issue", filters=base, fields=["reopen_count", "rework_count"], limit=0,
+	)
+	total = len(counts)
+	total_reopens = sum(c.reopen_count or 0 for c in counts)
+	total_rejections = sum(c.rework_count or 0 for c in counts)
+	reworked = sum(1 for c in counts if (c.reopen_count or 0) or (c.rework_count or 0))
+	rework = {
+		"reworked_tasks": reworked,
+		"total_reopens": total_reopens,
+		"total_rejections": total_rejections,
+		"rework_rate": round(reworked / total * 100) if total else 0,
+	}
+
 	return {
 		"distribution": distribution,
 		"velocity": velocity,
 		"throughput": throughput,
 		"avg_cycle_time": avg_cycle,
 		"total_completed": len(done),
+		"aging": aging,
+		"rework": rework,
 	}
 
 
@@ -1248,8 +1618,9 @@ def get_issues_dashboard(project):
 
 	issues = frappe.get_all(
 		"Projex Issue", filters=base,
-		fields=["name", "issue_id", "title", "issue_type", "status", "priority", "due_date"],
+		fields=["name", "issue_id", "title", "issue_type", "status", "priority", "due_date", "estimate"],
 	)
+	est_of = {i.name: (i.estimate or 0) for i in issues}
 	by_type, by_priority, by_cat = {}, {}, {}
 	for it in issues:
 		t = it.issue_type or "Task"
@@ -1266,21 +1637,43 @@ def get_issues_dashboard(project):
 		if (it.issue_type == "Bug") and (cats.get(it.status) in open_cats)
 	]
 
-	# per-assignee open load
+	# per-assignee open load (tasks + story points), across ALL project members so
+	# under-loaded people surface too — then flag over/under-allocation vs the team avg.
 	assignee_rows = frappe.get_all(
 		"Projex Issue Assignee", filters={"parent": ["in", [i.name for i in issues] or [""]]},
 		fields=["parent", "user"],
 	)
 	open_names = {i.name for i in issues if cats.get(i.status) in open_cats}
-	load = {}
+	tasks, points = {}, {}
 	for r in assignee_rows:
 		if r.parent in open_names:
-			load[r.user] = load.get(r.user, 0) + 1
+			tasks[r.user] = tasks.get(r.user, 0) + 1
+			points[r.user] = points.get(r.user, 0) + est_of.get(r.parent, 0)
+	members = frappe.get_all("Projex Project Member", filters={"parent": project}, pluck="user")
+	people = list(dict.fromkeys(list(members) + list(tasks)))  # members ∪ anyone with load
+	people = [u for u in people if u != "Administrator"] or people
+	loads = [points.get(u, 0) for u in people]
+	avg = (sum(loads) / len(loads)) if loads else 0
+
+	def _level(pts, tk):
+		if tk == 0:
+			return "under"
+		if avg and pts > max(8, avg * 1.4):
+			return "over"
+		if avg and pts < avg * 0.4:
+			return "under"
+		return "ok"
+
 	workload = sorted(
-		[{"user": u, "name_full": frappe.db.get_value("User", u, "full_name") or u, "open": n}
-		 for u, n in load.items()],
-		key=lambda x: -x["open"],
-	)[:8]
+		[{
+			"user": u,
+			"name_full": frappe.db.get_value("User", u, "full_name") or u,
+			"open": tasks.get(u, 0), "points": points.get(u, 0),
+			"level": _level(points.get(u, 0), tasks.get(u, 0)),
+		} for u in people],
+		key=lambda x: -x["points"],
+	)
+	max_points = max([w["points"] for w in workload], default=0)
 
 	PRIORITY_ORDER = ["Urgent", "High", "Medium", "Low", "None"]
 	return {
@@ -1290,6 +1683,8 @@ def get_issues_dashboard(project):
 		"by_category": by_cat,
 		"open_bugs": sorted(open_bugs, key=lambda b: PRIORITY_ORDER.index(b["priority"]) if b["priority"] in PRIORITY_ORDER else 9),
 		"workload": workload,
+		"workload_max_points": max_points,
+		"workload_avg_points": round(avg, 1),
 	}
 
 
@@ -1718,18 +2113,29 @@ def integration_status():
 
 
 @frappe.whitelist()
-def log_time(issue, hours, activity_type=None, note=None):
+def log_time(issue, hours, activity_type=None, note=None, spent_on=None, is_billable=1):
 	"""Create an ERPNext Timesheet entry linked to a Projex issue.
 
 	Wedge integration #1. No-ops cleanly (raises a friendly error) when ERPNext
 	is not installed. Reuses the issue's project ERPNext link when present.
+	Callable from the Timesheets tab (pick a task) or a task drawer.
 	"""
 	if not _erpnext_installed():
 		frappe.throw("ERPNext is not installed; time logging is unavailable.")
+	from projex.permissions import user_can_access_project
 
 	issue_doc = frappe.get_doc("Projex Issue", issue)
+	if not user_can_access_project(issue_doc.project):
+		frappe.throw("Not permitted", frappe.PermissionError)
 	project = frappe.get_doc("Projex Project", issue_doc.project)
 	company = frappe.defaults.get_global_default("company")
+
+	from_time = frappe.utils.now_datetime()
+	if spent_on:
+		# keep the wall-clock time so multiple same-day logs don't collide
+		from_time = frappe.utils.get_datetime(f"{spent_on} {from_time.strftime('%H:%M:%S')}")
+
+	is_billable = frappe.parse_json(is_billable) if isinstance(is_billable, str) else is_billable
 
 	erpnext_project = project.get("erpnext_project")
 	ts = frappe.new_doc("Timesheet")
@@ -1740,9 +2146,10 @@ def log_time(issue, hours, activity_type=None, note=None):
 		"activity_type": activity_type,
 		"hours": float(hours),
 		"project": erpnext_project or None,
-		"is_billable": 1,
+		"is_billable": 1 if is_billable else 0,
+		"billing_hours": float(hours) if is_billable else 0,
 		"description": f"[{issue_doc.issue_id}] {issue_doc.title}" + (f"\n{note}" if note else ""),
-		"from_time": frappe.utils.now_datetime(),
+		"from_time": from_time,
 	})
 	ts.flags.ignore_permissions = False
 	ts.insert()
@@ -1779,8 +2186,7 @@ def get_issue_time_logs(issue):
 @frappe.whitelist()
 def set_project_links(project, erpnext_customer=None, erpnext_project=None):
 	"""Set the optional ERPNext links on a Projex Project (project settings UI)."""
-	from projex.permissions import user_can_access_project
-	if not user_can_access_project(project):
+	if not _can_manage_project(project):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	if not _erpnext_installed():
 		frappe.throw("ERPNext is not installed.")
@@ -1789,6 +2195,234 @@ def set_project_links(project, erpnext_customer=None, erpnext_project=None):
 	doc.db_set("erpnext_project", erpnext_project or None)
 	frappe.db.commit()
 	return {"ok": True}
+
+
+@frappe.whitelist()
+def erpnext_link_options(project):
+	"""ERPNext Projects + Customers to populate the link pickers in settings."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	if not _erpnext_installed():
+		return {"erpnext": False, "projects": [], "customers": []}
+	projects = [
+		{"value": p.name, "label": p.project_name or p.name}
+		for p in frappe.get_all("Project", fields=["name", "project_name"], order_by="modified desc", limit=200)
+	]
+	customers = [
+		{"value": c.name, "label": c.customer_name or c.name}
+		for c in frappe.get_all("Customer", fields=["name", "customer_name"], order_by="modified desc", limit=200)
+	]
+	return {"erpnext": True, "projects": projects, "customers": customers}
+
+
+# --------------------------------------------------------------------------- #
+# Timesheets (native time analytics + ERPNext logged time) + project Finance
+# --------------------------------------------------------------------------- #
+def _company_currency():
+	company = frappe.defaults.get_global_default("company")
+	if company:
+		cur = frappe.db.get_value("Company", company, "default_currency")
+		if cur:
+			return cur
+	return frappe.db.get_default("currency") or "USD"
+
+
+def _erpnext_project(project):
+	if not _erpnext_installed():
+		return None
+	return frappe.db.get_value("Projex Project", project, "erpnext_project")
+
+
+def _time_analytics(project):
+	"""Native, ERPNext-free time analytics derived from status history:
+	  - per-status average time a task sits before moving on,
+	  - average lead time (created -> completed) and cycle time (started -> completed).
+	Reconstructed from Projex Activity 'changed status' rows + issue.creation."""
+	statuses = frappe.get_all(
+		"Projex Status", fields=["name", "status_name", "category", "position"]
+	)
+	cat_by_name = {s.status_name: s.category for s in statuses}
+	DAY = 86400.0
+
+	issues = frappe.get_all(
+		"Projex Issue", filters={"project": project},
+		fields=["name", "creation"], limit=0,
+	)
+	if not issues:
+		return {"per_status": [], "avg_lead_days": 0, "avg_cycle_days": 0, "completed": 0}
+	created = {i.name: i.creation for i in issues}
+	names = list(created)
+
+	acts = frappe.get_all(
+		"Projex Activity",
+		filters={"project": project, "issue": ["in", names], "action": "changed status"},
+		fields=["issue", "detail", "creation"],
+		order_by="issue asc, creation asc", limit=0,
+	)
+	# group changes per issue: [(time, label, category)]
+	changes = {}
+	for a in acts:
+		label = (a.detail or "").lstrip("→").strip()
+		changes.setdefault(a.issue, []).append((a.creation, label, cat_by_name.get(label)))
+
+	status_total, status_count = {}, {}
+	lead, cycle = [], []
+	completed = 0
+	done_cats = {"completed", "cancelled"}
+	started_cats = {"started"}
+	for name, chs in changes.items():
+		# time a task sits in a status = gap between consecutive changes
+		for idx in range(len(chs) - 1):
+			t0, label, _cat = chs[idx]
+			t1 = chs[idx + 1][0]
+			secs = (t1 - t0).total_seconds()
+			if secs > 0 and label:
+				status_total[label] = status_total.get(label, 0) + secs
+				status_count[label] = status_count.get(label, 0) + 1
+		# lead/cycle: find first 'started' entry and the completion entry
+		done_t = next((t for (t, _l, c) in reversed(chs) if c in done_cats), None)
+		if done_t:
+			completed += 1
+			lead.append((done_t - created[name]).total_seconds() / DAY)
+			started_t = next((t for (t, _l, c) in chs if c in started_cats), None)
+			if started_t:
+				cycle.append((done_t - started_t).total_seconds() / DAY)
+
+	per_status = sorted(
+		[
+			{"status_name": k, "avg_days": round(status_total[k] / status_count[k] / DAY, 1), "moves": status_count[k]}
+			for k in status_total
+		],
+		key=lambda x: -x["avg_days"],
+	)
+	avg = lambda xs: round(sum(xs) / len(xs), 1) if xs else 0
+	return {
+		"per_status": per_status,
+		"avg_lead_days": avg(lead),
+		"avg_cycle_days": avg(cycle),
+		"completed": completed,
+	}
+
+
+@frappe.whitelist()
+def create_time_log(issue, hours, spent_on=None, activity=None, is_billable=0, note=None, user=None):
+	"""Record time spent on a task — a NATIVE Projex Time Log (stored in the app,
+	no ERPNext needed). A timesheet entry references the existing task it was for;
+	it does not create a task."""
+	from projex.permissions import user_can_access_project
+	project = frappe.db.get_value("Projex Issue", issue, "project")
+	if not project or not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	# Members log their own time; only a manager may log on someone else's behalf.
+	who = user or frappe.session.user
+	if who != frappe.session.user and not _can_manage_project(project):
+		who = frappe.session.user
+	is_billable = frappe.parse_json(is_billable) if isinstance(is_billable, str) else is_billable
+	doc = frappe.get_doc({
+		"doctype": "Projex Time Log", "issue": issue, "project": project, "user": who,
+		"hours": float(hours), "spent_on": spent_on or frappe.utils.nowdate(),
+		"activity": activity or None, "is_billable": 1 if is_billable else 0, "note": note or None,
+	}).insert(ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True, "name": doc.name}
+
+
+@frappe.whitelist()
+def delete_time_log(name):
+	"""Remove a native time log (own entry, or a manager of its project)."""
+	row = frappe.db.get_value("Projex Time Log", name, ["project", "user"], as_dict=True)
+	if not row:
+		return {"ok": True}
+	if row.user != frappe.session.user and not _can_manage_project(row.project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	frappe.delete_doc("Projex Time Log", name, ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def get_project_timesheets(project):
+	"""Timesheets view: native flow-time analytics (always) + native logged hours
+	(Projex Time Log — created in-app, no ERPNext dependency)."""
+	from projex.permissions import user_can_access_project
+	if not user_can_access_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+
+	auto = _time_analytics(project)
+
+	rows = frappe.get_all(
+		"Projex Time Log", filters={"project": project},
+		fields=["name", "issue", "user", "hours", "spent_on", "activity", "is_billable", "note"],
+		order_by="spent_on desc, creation desc", limit=0,
+	)
+	issue_ids, names = {}, {}
+	total = billable = 0.0
+	by_user, by_issue = {}, {}
+	entries = []
+	for r in rows:
+		total += r.hours or 0
+		if r.is_billable:
+			billable += r.hours or 0
+		if r.issue not in issue_ids:
+			issue_ids[r.issue] = frappe.db.get_value("Projex Issue", r.issue, "issue_id") or r.issue
+		if r.user not in names:
+			names[r.user] = frappe.db.get_value("User", r.user, "full_name") or r.user
+		iid = issue_ids[r.issue]
+		by_user[r.user] = by_user.get(r.user, 0) + (r.hours or 0)
+		by_issue[iid] = by_issue.get(iid, 0) + (r.hours or 0)
+		entries.append({
+			"name": r.name, "issue": r.issue, "issue_id": iid,
+			"by": names[r.user], "hours": r.hours or 0, "spent_on": str(r.spent_on) if r.spent_on else None,
+			"activity": r.activity, "billable": bool(r.is_billable), "note": r.note,
+		})
+
+	logged = {
+		"available": True,
+		"total_hours": round(total, 2),
+		"billable_hours": round(billable, 2),
+		"by_user": sorted(
+			[{"user": u, "name": names[u], "hours": round(h, 2)} for u, h in by_user.items()],
+			key=lambda x: -x["hours"],
+		),
+		"by_issue": sorted(
+			[{"issue_id": k, "hours": round(v, 2)} for k, v in by_issue.items()],
+			key=lambda x: -x["hours"],
+		),
+		"entries": entries[:100],
+	}
+	return {"auto": auto, "logged": logged, "erpnext": _erpnext_installed()}
+
+
+@frappe.whitelist()
+def get_project_finance(project):
+	"""Per-project P&L pulled from the linked ERPNext Project (cost, billed,
+	sales, gross margin). Manager-gated. Returns available:False otherwise."""
+	if not _can_manage_project(project):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	erp = _erpnext_project(project)
+	if not erp:
+		return {"available": False, "erpnext": _erpnext_installed()}
+	summary = frappe.db.get_value(
+		"Project", erp,
+		[
+			"estimated_costing", "total_costing_amount", "total_purchase_cost",
+			"total_sales_amount", "total_billable_amount", "total_billed_amount",
+			"total_consumed_material_cost", "gross_margin", "per_gross_margin",
+			"actual_time", "percent_complete",
+		],
+		as_dict=True,
+	) or {}
+	invoices = []
+	if frappe.db.has_column("Sales Invoice", "project"):
+		invoices = frappe.get_all(
+			"Sales Invoice", filters={"project": erp},
+			fields=["name", "grand_total", "outstanding_amount", "status", "posting_date"],
+			order_by="posting_date desc", limit=50,
+		)
+	return {
+		"available": True, "erpnext_project": erp, "currency": _company_currency(),
+		"summary": summary, "invoices": invoices,
+	}
 
 
 # --------------------------------------------------------------------------- #

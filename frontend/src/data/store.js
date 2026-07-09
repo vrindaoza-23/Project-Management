@@ -10,6 +10,7 @@ export const store = reactive({
 	users: [],
 	favorites: [],
 	counts: { inbox: 0 },
+	canManageUsers: false,
 	loaded: false,
 })
 
@@ -28,6 +29,7 @@ export function initStore() {
 			store.users = data.users || []
 			store.favorites = data.favorites || []
 			store.counts = data.counts || { inbox: 0 }
+			store.canManageUsers = !!data.can_manage_users
 			store.loaded = true
 		},
 	})

@@ -27,3 +27,32 @@ export function relativeTime(dateStr) {
 	const wks = Math.floor(days / 7)
 	return `${wks}w`
 }
+
+export function formatMoney(amount, currency = 'USD') {
+	const n = Number(amount) || 0
+	try {
+		return new Intl.NumberFormat(undefined, {
+			style: 'currency',
+			currency: currency || 'USD',
+			maximumFractionDigits: n % 1 === 0 ? 0 : 2,
+		}).format(n)
+	} catch {
+		return `${currency} ${n.toLocaleString()}`
+	}
+}
+
+export function daysSince(dateStr) {
+	if (!dateStr) return 0
+	const then = new Date(dateStr.replace(' ', 'T'))
+	return Math.floor((Date.now() - then.getTime()) / 86400000)
+}
+
+// Age chip for "time in current status": label + staleness level.
+// warn ≥ 7 days, stale ≥ 14 days. Falls back to `modified` if no status timestamp.
+export function ageChip(statusChangedOn, modified) {
+	const ref = statusChangedOn || modified
+	if (!ref) return { label: '', level: 'ok', days: 0 }
+	const days = daysSince(ref)
+	const level = days >= 14 ? 'stale' : days >= 7 ? 'warn' : 'ok'
+	return { label: relativeTime(ref), level, days }
+}

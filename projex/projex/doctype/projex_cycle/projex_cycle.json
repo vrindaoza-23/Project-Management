@@ -10,7 +10,8 @@
   "project",
   "start_date",
   "end_date",
-  "state"
+  "state",
+  "goal"
  ],
  "fields": [
   {
@@ -44,6 +45,11 @@
    "in_list_view": 1,
    "label": "State",
    "options": "Active\nUpcoming\nCompleted"
+  },
+  {
+   "fieldname": "goal",
+   "fieldtype": "Small Text",
+   "label": "Goal"
   }
  ],
  "grid_page_length": 50,

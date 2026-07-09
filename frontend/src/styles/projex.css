@@ -7,17 +7,17 @@
   --accent-strong:  var(--surface-blue-3);
   --accent-surface: var(--surface-blue-2);
   --accent-ink:     var(--ink-blue-2);
-  --row-h: 36px;
+  --row-h: 40px;
 }
-.fu-app[data-density="compact"] { --row-h: 32px; }
-.fu-app[data-density="comfy"]   { --row-h: 42px; }
+.fu-app[data-density="compact"] { --row-h: 34px; }
+.fu-app[data-density="comfy"]   { --row-h: 46px; }
 
 html, body, #app { height: 100%; margin: 0; }
 body { background: var(--surface-white); }
 .fu-app { height: 100%; }
 
-.pjx-app { display: grid; grid-template-columns: 232px 1fr; height: 100vh; overflow: hidden; }
-.pjx-main { display: flex; flex-direction: column; min-width: 0; background: var(--surface-white); }
+.pjx-app { display: grid; grid-template-columns: 232px 1fr; grid-template-rows: minmax(0, 1fr); height: 100vh; overflow: hidden; }
+.pjx-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface-white); }
 .pjx-view { flex: 1; min-height: 0; overflow: auto; position: relative; }
 
 /* quiet scrollbars */
@@ -51,13 +51,16 @@ body { background: var(--surface-white); }
 
 /* ─────────────────────── Topbar ─────────────────────── */
 .pjx-topbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); }
-.pjx-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.pjx-crumb { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-.pjx-vtabs { display: flex; gap: 2px; margin-left: 4px; }
-.pjx-vtab { appearance: none; background: transparent; border: 0; height: 28px; padding: 0 9px; border-radius: 8px; cursor: pointer; color: var(--ink-gray-6); font-family: var(--font-sans); font-size: 13px; }
+.pjx-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; flex-shrink: 0; max-width: 30%; overflow: hidden; }
+.pjx-crumb { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
+.pjx-crumb > span { overflow: hidden; text-overflow: ellipsis; }
+/* Tab strip flexes and scrolls horizontally so many tabs never overflow onto the action buttons. */
+.pjx-vtabs { display: flex; gap: 2px; margin-left: 4px; flex: 1 1 auto; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.pjx-vtabs::-webkit-scrollbar { display: none; }
+.pjx-vtab { flex: 0 0 auto; appearance: none; background: transparent; border: 0; height: 28px; padding: 0 9px; border-radius: 8px; cursor: pointer; color: var(--ink-gray-6); font-family: var(--font-sans); font-size: 13px; white-space: nowrap; }
 .pjx-vtab:hover { background: var(--surface-gray-2); color: var(--ink-gray-9); }
 .pjx-vtab.is-active { background: var(--surface-gray-3); color: var(--ink-gray-9); font-weight: 500; }
-.pjx-topbar__right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.pjx-topbar__right { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .pjx-divider { width: 1px; height: 20px; background: var(--outline-gray-2); }
 .pjx-searchbtn { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 8px; cursor: pointer; background: var(--surface-gray-2); border: 0; color: var(--ink-gray-5); font-family: var(--font-sans); font-size: 13px; }
 .pjx-searchbtn:hover { background: var(--surface-gray-3); }
@@ -99,7 +102,7 @@ body { background: var(--surface-white); }
 .pjx-list { padding-bottom: 64px; }
 .pjx-list__bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px 4px; }
 .pjx-list__bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--ink-gray-5); }
-.pjx-row, .pjx-list__head { display: grid; grid-template-columns: 18px minmax(0,1fr) 164px 44px 76px 84px 104px; align-items: center; gap: 12px; padding: 0 16px; }
+.pjx-row, .pjx-list__head { display: grid; grid-template-columns: 18px minmax(0,1fr) 164px 44px 76px 84px 92px 104px; align-items: center; gap: 12px; padding: 0 16px; }
 .pjx-list__head { height: 32px; border-bottom: 1px solid var(--outline-gray-1); color: var(--ink-gray-5); font-size: 11px; letter-spacing: .02em; }
 .pjx-list__head .r { text-align: right; justify-self: end; }
 .pjx-grouphead { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; color: var(--ink-gray-7); font-size: 13px; }
@@ -137,8 +140,18 @@ body { background: var(--surface-white); }
 .pjx-col__count { color: var(--ink-gray-5); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pjx-col__body { display: flex; flex-direction: column; gap: 8px; padding: 10px; overflow-y: auto; min-height: 80px; }
 .pjx-col__empty { padding: 16px; border: 1px dashed var(--outline-gray-2); border-radius: 8px; color: var(--ink-gray-4); text-align: center; font-size: 12px; }
-.pjx-card { background: var(--surface-white); border: 1px solid var(--outline-gray-1); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .12s; }
+.pjx-card { background: var(--surface-white); border: 1px solid var(--outline-gray-1); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .12s; touch-action: none; }
 .pjx-card:hover { border-color: var(--outline-gray-3); }
+/* Pointer-drag: the floating clone (appended to <body>) and the source card. */
+.pjx-card--ghost { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none; box-shadow: var(--shadow-xl); opacity: .97; cursor: grabbing; will-change: transform; }
+.pjx-card--dragsrc { opacity: .35; }
+body.pjx-dragging { cursor: grabbing; user-select: none; }
+body.pjx-dragging * { cursor: grabbing !important; }
+/* Pending-age chip (time in current status) + rework badges — shared across views. */
+.pjx-age { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-gray-2); color: var(--ink-gray-5); white-space: nowrap; }
+.pjx-age[data-level='warn'] { background: var(--surface-amber-2, #fef3c7); color: var(--ink-amber-3, #b06000); }
+.pjx-age[data-level='stale'] { background: var(--surface-red-2, #fee2e2); color: var(--ink-red-3, #c5221f); }
+.pjx-rwk { display: inline-flex; align-items: center; gap: 2px; height: 18px; padding: 0 5px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-red-1, #fef2f2); color: var(--ink-red-3, #c5221f); }
 .pjx-card__top { display: flex; align-items: center; gap: 7px; }
 .pjx-card__title { font-size: 13px; color: var(--ink-gray-9); line-height: 1.42; text-wrap: pretty; }
 .pjx-card__labels { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -287,3 +300,58 @@ body { background: var(--surface-white); }
 /* Tweaks panel z above drawer */
 .twk-panel { z-index: 1000; }
 ::selection { background: var(--surface-blue-2); }
+
+/* ============================================================================
+   APPLE-AIRY PASS — refinement layer (spacing, hierarchy, depth, motion, focus).
+   Appended last so it tunes the base rules above without rewriting them.
+   ============================================================================ */
+
+/* — Airiness: a touch more breathing room + comfortable hit areas — */
+.pjx-topbar { height: 52px; }
+.pjx-row, .pjx-list__head { padding-left: 20px; padding-right: 20px; }
+.pjx-board__cols, .pjx-list__bar, .pjx-board__bar { padding-left: 20px; padding-right: 20px; }
+.pjx-card { padding: 12px; gap: 9px; border-radius: 12px; }
+.pjx-col { border-radius: 12px; }
+.pjx-col__body { gap: 10px; padding: 12px; }
+.pjx-col__head { padding: 12px 14px; }
+.pjx-iconbtn { width: 30px; height: 30px; }
+
+/* — Hierarchy: more confident titles, clearer steps — */
+.pjx-card__title { font-size: 14px; }
+.pjx-col__name { font-size: 14px; font-weight: 600; }
+.pjx-grouphead { font-size: 13px; }
+.pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
+
+/* — Calm color: soften label chips to tinted-neutral — */
+.pjx-label { background: var(--surface-gray-1); border-color: transparent; color: var(--ink-gray-6); }
+
+/* — Motion: fast, tasteful, meaningful — */
+.pjx-row, .pjx-card, .pjx-vtab, .pjx-chip, .pjx-navrow, .nav, .pjx-iconbtn,
+.pjx-blrow, .pjx-ppl-row, .pjx-bugrow, .pjx-statcard, .pjx-fin__inv, .pjx-ts__entry {
+  transition: background-color .14s ease, border-color .14s ease, box-shadow .18s ease, transform .1s ease;
+}
+button, .pjx-chip, .pjx-iconbtn { transition: background-color .14s ease, border-color .14s ease, transform .08s ease, box-shadow .16s ease; }
+button:active:not(:disabled), .pjx-iconbtn:active { transform: scale(.97); }
+.pjx-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); border-color: var(--outline-gray-2); }
+.pjx-statcard:hover { box-shadow: var(--shadow-sm); }
+
+/* — Depth & material: layered, translucent overlays — */
+.pjx-cmdk { background: var(--black-overlay-200); backdrop-filter: blur(10px) saturate(150%); -webkit-backdrop-filter: blur(10px) saturate(150%); }
+.pjx-cmdk__box { box-shadow: var(--shadow-2xl); }
+.dialog-overlay { backdrop-filter: blur(6px) saturate(140%); -webkit-backdrop-filter: blur(6px) saturate(140%); }
+.pjx-drawer { box-shadow: var(--shadow-2xl); }
+/* frappe-ui dialog panel — soften + lift */
+[role="dialog"] { box-shadow: var(--shadow-2xl) !important; border-radius: var(--radius-lg) !important; }
+
+/* — Focus: one clear accent ring (keyboard only) — */
+:where(button, a, input, textarea, select, .pjx-row, .nav, .pjx-vtab, .pjx-chip, .pjx-blrow):focus-visible {
+  outline: 2px solid var(--blue-400);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* — Respect reduced-motion — */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  .pjx-card:hover { transform: none; }
+}
