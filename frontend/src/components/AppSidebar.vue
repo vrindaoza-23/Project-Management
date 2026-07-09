@@ -181,7 +181,7 @@ async function newTeam() {
 								:title="isFav(p.name) ? 'Unstar' : 'Star'"
 								@click="toggleFav(p.name, $event)"
 							>
-								<Icon :name="isFav(p.name) ? 'star' : 'star'" :size="13" />
+								<Icon name="star" :size="13" />
 							</button>
 						</router-link>
 					</template>

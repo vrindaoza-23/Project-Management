@@ -10,10 +10,20 @@ const emit = defineEmits(['created'])
 const text = ref('')
 const saving = ref(false)
 
+// Pickers give us the label + user options to resolve #label / @assignee tokens
+// against real records instead of silently dropping them.
+const pickers = createResource({
+	url: 'projex.api.get_pickers',
+	makeParams: () => ({ project: props.projectKey }),
+	auto: true,
+})
+
+const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low', 'None']
+
 // Live tokenizer: @assignee (blue), !priority (amber), #label (green).
 const tokens = computed(() => {
 	const out = []
-	const re = /(@\w+)|(!\w+)|(#\w+)/g
+	const re = /(@[\w.-]+)|(!\w+)|(#[\w-]+)/g
 	let m
 	while ((m = re.exec(text.value)) !== null) {
 		const s = m[0]
@@ -26,24 +36,49 @@ const tokens = computed(() => {
 
 const projectName = computed(() => projectByKey(props.projectKey)?.project_name || props.projectKey)
 
-const creator = createResource({ url: 'frappe.client.insert' })
+const creator = createResource({ url: 'projex.api.create_issue' })
+
+function resolveAssignee(handle) {
+	const h = handle.toLowerCase()
+	const users = pickers.data?.users || []
+	return (
+		users.find((u) => (u.name || '').toLowerCase().split('@')[0] === h) ||
+		users.find((u) => (u.full_name || '').toLowerCase().split(' ')[0] === h) ||
+		users.find((u) => (u.full_name || '').toLowerCase().includes(h))
+	)?.name
+}
+
+function resolveLabel(handle) {
+	const h = handle.toLowerCase()
+	const labels = pickers.data?.labels || []
+	return (
+		labels.find((l) => (l.label_name || '').toLowerCase() === h) ||
+		labels.find((l) => (l.label_name || '').toLowerCase().includes(h))
+	)?.name
+}
+
+function normalizePriority(token) {
+	if (!token) return 'None'
+	const p = token.label.charAt(0).toUpperCase() + token.label.slice(1).toLowerCase()
+	return PRIORITIES.includes(p) ? p : 'None'
+}
 
 async function submit() {
-	const title = text.value.replace(/[@!#]\w+/g, '').trim()
+	const title = text.value.replace(/[@!#][\w.-]+/g, '').trim()
 	if (!title || saving.value) return
 	saving.value = true
-	const priorityToken = tokens.value.find((t) => t.kind === 'priority')
-	const priority = priorityToken
-		? priorityToken.label.charAt(0).toUpperCase() + priorityToken.label.slice(1)
-		: 'None'
+	const priority = normalizePriority(tokens.value.find((t) => t.kind === 'priority'))
+	const assignees = tokens.value
+		.filter((t) => t.kind === 'assignee')
+		.map((t) => resolveAssignee(t.label))
+		.filter(Boolean)
+	const labels = tokens.value
+		.filter((t) => t.kind === 'label')
+		.map((t) => resolveLabel(t.label))
+		.filter(Boolean)
 	try {
 		await creator.submit({
-			doc: {
-				doctype: 'Projex Issue',
-				title,
-				project: props.projectKey,
-				priority: ['Urgent', 'High', 'Medium', 'Low', 'None'].includes(priority) ? priority : 'None',
-			},
+			payload: { title, project: props.projectKey, priority, assignees, labels },
 		})
 		text.value = ''
 		emit('created')

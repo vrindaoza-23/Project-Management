@@ -17,6 +17,8 @@ const router = useRouter()
 
 const q = ref('')
 const inputRef = ref(null)
+const listRef = ref(null)
+const activeIndex = ref(0)
 
 watch(
 	() => props.open,
@@ -24,6 +26,7 @@ watch(
 		if (v) {
 			q.value = ''
 			issueResults.value = []
+			activeIndex.value = 0
 			nextTick(() => inputRef.value?.focus())
 		}
 	},
@@ -75,11 +78,35 @@ const items = computed(() => {
 		.slice(0, 16)
 })
 
+// Grouped by section for display, but each row carries a running global index
+// (`gi`) so a single activeIndex can drive keyboard highlight across sections.
 const grouped = computed(() => {
 	const g = {}
-	for (const it of items.value) (g[it.section] ||= []).push(it)
+	let gi = 0
+	for (const it of items.value) (g[it.section] ||= []).push({ ...it, gi: gi++ })
 	return g
 })
+
+const flatItems = computed(() => items.value)
+
+// Keep the highlight in range as results change under the cursor.
+watch(flatItems, (list) => {
+	if (activeIndex.value >= list.length) activeIndex.value = Math.max(0, list.length - 1)
+})
+
+function move(delta) {
+	const n = flatItems.value.length
+	if (!n) return
+	activeIndex.value = (activeIndex.value + delta + n) % n
+	nextTick(() => {
+		listRef.value?.querySelector('.pjx-cmdk__row.is-active')?.scrollIntoView({ block: 'nearest' })
+	})
+}
+
+function chooseActive() {
+	const item = flatItems.value[activeIndex.value]
+	if (item) choose(item)
+}
 
 function choose(item) {
 	emit('close')
@@ -100,14 +127,24 @@ function choose(item) {
 					v-model="q"
 					class="pjx-cmdk__input"
 					placeholder="Search projects, jump to views — or type a command"
+					@keydown.down.prevent="move(1)"
+					@keydown.up.prevent="move(-1)"
+					@keydown.enter.prevent="chooseActive"
 					@keydown.esc="emit('close')"
 				/>
 				<span class="kbd">esc</span>
 			</div>
-			<div class="pjx-cmdk__list">
+			<div ref="listRef" class="pjx-cmdk__list">
 				<div v-for="(list, sect) in grouped" :key="sect">
 					<div class="pjx-cmdk__sect">{{ sect }}</div>
-					<button v-for="it in list" :key="it.label" class="pjx-cmdk__row" @click="choose(it)">
+					<button
+						v-for="it in list"
+						:key="it.label"
+						class="pjx-cmdk__row"
+						:class="{ 'is-active': it.gi === activeIndex }"
+						@click="choose(it)"
+						@mousemove="activeIndex = it.gi"
+					>
 						<span class="pjx-cmdk__icon"><Icon :name="it.icon" :size="16" /></span>
 						<span class="pjx-cmdk__label">{{ it.label }}</span>
 						<span v-if="it.hint" class="kbd">{{ it.hint }}</span>

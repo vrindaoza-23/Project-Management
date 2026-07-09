@@ -296,7 +296,6 @@ function onCommentEnter(e) {
 	}
 }
 
-const aiEnabled = computed(() => integration.data?.ai)
 const attachments = computed(() => detail.data?.attachments || [])
 const links = computed(() => detail.data?.links || [])
 const linkTargetOptions = computed(() =>
@@ -707,14 +706,7 @@ async function removeLink(name) {
 						<div class="pjx-sideblock__t">{{ relativeTime(issue.modified) }} ago</div>
 					</div>
 
-					<div v-if="aiEnabled" class="pjx-aibox">
-						<div class="pjx-aibox__h">
-							<Icon name="sparkles" :size="14" /><span style="font-weight: 500">AI suggestions</span>
-						</div>
-						<button class="pjx-aibox__sug"><Icon name="list-checks" :size="14" /> Generate test plan</button>
-						<button class="pjx-aibox__sug"><Icon name="clock" :size="14" /> Set due from velocity</button>
 					</div>
-				</div>
 			</div>
 			<div v-else class="pjx-drawer__body" style="padding: 40px">
 				<span class="t-sm ink-5">Loading…</span>

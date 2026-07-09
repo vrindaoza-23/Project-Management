@@ -18,7 +18,6 @@ declare module 'vue' {
     CreateProjectDialog: typeof import('./src/components/CreateProjectDialog.vue')['default']
     CreateWorkspaceDialog: typeof import('./src/components/CreateWorkspaceDialog.vue')['default']
     Donut: typeof import('./src/components/Donut.vue')['default']
-    FilterChips: typeof import('./src/components/FilterChips.vue')['default']
     Icon: typeof import('./src/components/Icon.vue')['default']
     LabelChip: typeof import('./src/components/LabelChip.vue')['default']
     LivePill: typeof import('./src/components/LivePill.vue')['default']

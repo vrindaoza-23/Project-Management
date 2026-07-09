@@ -247,10 +247,6 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-sideblock { border-top: 1px solid var(--outline-gray-1); padding-top: 12px; }
 .pjx-sideblock__h { font-size: 11px; color: var(--ink-gray-5); margin-bottom: 2px; }
 .pjx-sideblock__t { font-size: 12px; color: var(--ink-gray-7); }
-.pjx-aibox { border: 1px solid var(--outline-gray-2); background: var(--surface-white); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
-.pjx-aibox__h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-gray-7); margin-bottom: 6px; white-space: nowrap; }
-.pjx-aibox__sug { appearance: none; background: transparent; border: 0; text-align: left; padding: 6px 8px; border-radius: 6px; font-size: 12px; color: var(--ink-gray-8); cursor: pointer; display: flex; align-items: center; gap: 8px; font-family: var(--font-sans); }
-.pjx-aibox__sug:hover { background: var(--surface-gray-2); }
 
 /* ─────────────────────── Inbox ─────────────────────── */
 .pjx-inbox { display: grid; grid-template-columns: 384px 1fr; height: 100%; min-height: 0; }
