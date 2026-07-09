@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import * as lucide from 'lucide-vue-next'
+import { ICONS, FALLBACK_ICON } from './icons'
 
 const props = defineProps({
 	name: { type: String, required: true },
@@ -8,14 +8,7 @@ const props = defineProps({
 	strokeWidth: { type: [Number, String], default: 1.75 },
 })
 
-function pascal(kebab) {
-	return kebab
-		.split('-')
-		.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-		.join('')
-}
-
-const comp = computed(() => lucide[pascal(props.name)] || lucide.Square)
+const comp = computed(() => ICONS[props.name] || FALLBACK_ICON)
 </script>
 
 <template>
