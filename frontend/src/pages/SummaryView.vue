@@ -65,8 +65,8 @@ const DOT = { gray: 'var(--gray-400)', blue: 'var(--blue-500)', amber: 'var(--am
 						<Avatar :label="a.actor_name" size="sm" />
 						<span class="pjx-actrow__t">
 							<strong>{{ a.actor_name }}</strong> {{ a.action }}
-							<span v-if="a.issue_id" class="pjx-id">{{ a.issue_id }}</span>
-							<span v-if="a.detail" class="pjx-dim"> {{ a.detail }}</span>
+							<span v-if="a.issue_id" class="pjx-id" style="margin: 0 5px">{{ a.issue_id }}</span>
+							<span v-if="a.detail" class="pjx-dim">{{ a.detail }}</span>
 						</span>
 						<span class="pjx-actrow__w">{{ relativeTime(a.creation) }}</span>
 					</div>

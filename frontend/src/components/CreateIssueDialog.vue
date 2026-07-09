@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
+import { createResource, Dialog, Button, FormControl, DatePicker } from 'frappe-ui'
 import Icon from './Icon.vue'
 import NativeSelect from './NativeSelect.vue'
 import { store } from '@/data/store'
+import { notify, notifyError } from '@/utils/feedback'
 
 const props = defineProps({
 	open: Boolean,
@@ -59,21 +60,26 @@ const TYPES = ['Task', 'Bug', 'Story', 'Epic'].map((t) => ({ value: t, label: t 
 
 async function submit() {
 	if (!title.value.trim() || !project.value) return
-	await creator.submit({
-		payload: JSON.stringify({
-			title: title.value.trim(),
-			project: project.value,
-			issue_type: issueType.value,
-			priority: priority.value,
-			assignees: assignees.value,
-			labels: labels.value,
-			due_date: dueDate.value || null,
-			estimate: estimate.value || null,
-			description: description.value ? `<p>${description.value}</p>` : null,
-		}),
-	})
-	emit('created')
-	emit('close')
+	try {
+		await creator.submit({
+			payload: JSON.stringify({
+				title: title.value.trim(),
+				project: project.value,
+				issue_type: issueType.value,
+				priority: priority.value,
+				assignees: assignees.value,
+				labels: labels.value,
+				due_date: dueDate.value || null,
+				estimate: estimate.value || null,
+				description: description.value ? `<p>${description.value}</p>` : null,
+			}),
+		})
+		notify.success(`${issueType.value} created`)
+		emit('created')
+		emit('close')
+	} catch (e) {
+		notifyError(e, 'Could not create task')
+	}
 }
 </script>
 
@@ -121,7 +127,7 @@ async function submit() {
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Due date</span>
-						<input v-model="dueDate" type="date" class="pjx-dateinput" />
+						<DatePicker v-model="dueDate" placeholder="Select date" />
 					</div>
 					<div class="pjx-fld">
 						<span class="pjx-fld__l">Estimate</span>
@@ -157,24 +163,5 @@ async function submit() {
 .pjx-fld__l {
 	font-size: 12px;
 	color: var(--ink-gray-5);
-}
-.pjx-dateinput {
-	width: 100%;
-	height: 28px;
-	padding: 0 10px;
-	font-size: 13px;
-	font-family: var(--font-sans);
-	color: var(--ink-gray-8);
-	background: var(--surface-gray-2);
-	border: 1px solid transparent;
-	border-radius: 8px;
-}
-.pjx-dateinput:hover {
-	background: var(--surface-gray-3);
-}
-.pjx-dateinput:focus {
-	outline: none;
-	border-color: var(--outline-gray-3);
-	background: var(--surface-white);
 }
 </style>
