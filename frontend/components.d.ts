@@ -14,6 +14,7 @@ declare module 'vue' {
     BurndownChart: typeof import('./src/components/BurndownChart.vue')['default']
     CommandPalette: typeof import('./src/components/CommandPalette.vue')['default']
     CompleteSprintDialog: typeof import('./src/components/CompleteSprintDialog.vue')['default']
+    ConfirmHost: typeof import('./src/components/ConfirmHost.vue')['default']
     CreateIssueDialog: typeof import('./src/components/CreateIssueDialog.vue')['default']
     CreateProjectDialog: typeof import('./src/components/CreateProjectDialog.vue')['default']
     CreateWorkspaceDialog: typeof import('./src/components/CreateWorkspaceDialog.vue')['default']

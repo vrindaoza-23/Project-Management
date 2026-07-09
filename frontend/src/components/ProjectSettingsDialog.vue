@@ -5,6 +5,7 @@ import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import NativeSelect from './NativeSelect.vue'
 import { store, reloadBootstrap, userName } from '@/data/store'
+import { notify, notifyError, confirm, promptText } from '@/utils/feedback'
 
 const props = defineProps({ open: Boolean, project: { type: String, required: true } })
 const emit = defineEmits(['close', 'changed', 'deleted'])
@@ -145,9 +146,9 @@ async function makeInviteLink() {
 async function copyLink(url) {
 	try {
 		await navigator.clipboard.writeText(url)
-		window.alert('Invite link copied to clipboard')
+		notify.success('Invite link copied to clipboard')
 	} catch {
-		window.prompt('Copy this invite link:', url)
+		await promptText({ title: 'Copy invite link', label: 'Select and copy', value: url })
 	}
 }
 async function revokeLink(name) {
@@ -202,14 +203,22 @@ const primaryAction = computed(() => {
 
 async function confirmDelete() {
 	const label = gen.value.project_name || props.project
-	const ok = window.confirm(
-		`Delete project “${label}” and all of its tasks, labels and cycles?\n\nThis cannot be undone.`,
-	)
+	const ok = await confirm({
+		title: `Delete project “${label}”`,
+		message: 'All of its tasks, labels and cycles will be permanently deleted. This cannot be undone.',
+		confirmLabel: 'Delete project',
+		theme: 'red',
+	})
 	if (!ok) return
-	await deleter.submit({ project: props.project })
-	await reloadBootstrap()
-	emit('deleted', props.project)
-	emit('close')
+	try {
+		await deleter.submit({ project: props.project })
+		await reloadBootstrap()
+		notify.success(`Project “${label}” deleted`)
+		emit('deleted', props.project)
+		emit('close')
+	} catch (e) {
+		notifyError(e, 'Could not delete project')
+	}
 }
 
 const isArchived = computed(() => !!detail.data?.project?.is_archived)
@@ -225,19 +234,40 @@ async function toggleArchive() {
 }
 
 async function duplicate() {
-	const name = (window.prompt('Name for the duplicated project', `${gen.value.project_name || props.project} copy`) || '').trim()
-	if (!name) return
-	const key = (window.prompt('Key for the new project (e.g. ABC)') || '').trim().toUpperCase()
-	if (!key) return
-	const withIssues = window.confirm('Copy all tasks into the new project too?\n\nOK = copy tasks (as a template, reset to first status)\nCancel = structure only (labels, cycles, members)')
-	const res = await duplicator.submit({
-		project: props.project, new_name: name, new_key: key,
-		include_issues: withIssues ? 1 : 0, reset_status: 1,
+	const name = await promptText({
+		title: 'Duplicate project',
+		label: 'New project name',
+		value: `${gen.value.project_name || props.project} copy`,
+		confirmLabel: 'Next',
 	})
-	await reloadBootstrap()
-	emit('changed')
-	emit('close')
-	window.alert(`Created “${name}” (${res.key})${res.issues_copied ? ` with ${res.issues_copied} tasks` : ''}.`)
+	if (!name) return
+	const key = (
+		await promptText({
+			title: 'Duplicate project',
+			label: 'Key for the new project',
+			placeholder: 'e.g. ABC',
+			confirmLabel: 'Next',
+		})
+	)?.toUpperCase()
+	if (!key) return
+	const withIssues = await confirm({
+		title: 'Copy tasks too?',
+		message: 'Copy all tasks into the new project as a template (reset to the first status)? Choose Cancel to copy structure only — labels, cycles and members.',
+		confirmLabel: 'Copy tasks',
+		cancelLabel: 'Structure only',
+	})
+	try {
+		const res = await duplicator.submit({
+			project: props.project, new_name: name, new_key: key,
+			include_issues: withIssues ? 1 : 0, reset_status: 1,
+		})
+		await reloadBootstrap()
+		emit('changed')
+		emit('close')
+		notify.success(`Created “${name}” (${res.key})${res.issues_copied ? ` with ${res.issues_copied} tasks` : ''}`)
+	} catch (e) {
+		notifyError(e, 'Could not duplicate project')
+	}
 }
 </script>
 

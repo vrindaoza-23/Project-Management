@@ -6,6 +6,7 @@ import Icon from '@/components/Icon.vue'
 import SelectField from '@/components/SelectField.vue'
 import { openPalette, openDrawer } from '@/data/ui'
 import { relativeTime } from '@/utils/format'
+import { notify, notifyError, confirm } from '@/utils/feedback'
 
 const ROLE_OPTS = [
 	{ label: 'Admin', value: 'Admin' },
@@ -71,10 +72,21 @@ async function allocate() {
 	overview.reload()
 }
 async function deallocate(p) {
-	if (!window.confirm(`Remove ${current.value.full_name} from ${p.project_name}?`)) return
-	await memberRemove.submit({ parent_doctype: 'Projex Project', parent: p.project, user: selected.value })
-	detail.reload()
-	overview.reload()
+	const ok = await confirm({
+		title: 'Remove from project',
+		message: `Remove ${current.value.full_name} from ${p.project_name}?`,
+		confirmLabel: 'Remove',
+		theme: 'red',
+	})
+	if (!ok) return
+	try {
+		await memberRemove.submit({ parent_doctype: 'Projex Project', parent: p.project, user: selected.value })
+		detail.reload()
+		overview.reload()
+		notify.success(`Removed ${current.value.full_name} from ${p.project_name}`)
+	} catch (e) {
+		notifyError(e, 'Could not remove member')
+	}
 }
 
 const ACTION_ICON = {

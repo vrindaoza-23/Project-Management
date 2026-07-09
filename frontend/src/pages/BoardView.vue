@@ -3,6 +3,7 @@ import { ref, computed, onBeforeUnmount } from 'vue'
 import { createResource } from 'frappe-ui'
 import StatusDot from '@/components/StatusDot.vue'
 import BoardCard from '@/components/BoardCard.vue'
+import { notifyError } from '@/utils/feedback'
 
 const props = defineProps({
 	issues: { type: Array, default: () => [] },
@@ -110,7 +111,7 @@ async function onUp(e) {
 		emit('changed')
 	} catch (err) {
 		issue.status = prev // rollback
-		console.error('[projex] status update failed', err)
+		notifyError(err, 'Could not move task')
 	}
 }
 

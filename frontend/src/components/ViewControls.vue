@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Dropdown, Button } from 'frappe-ui'
 import Icon from './Icon.vue'
 import MultiSelectPopover from './MultiSelectPopover.vue'
+import { promptText } from '@/utils/feedback'
 
 const props = defineProps({
 	statuses: { type: Array, default: () => [] },
@@ -29,8 +30,12 @@ const viewOptions = computed(() => {
 		{
 			label: 'Save current view…',
 			icon: 'plus',
-			onClick: () => {
-				const name = (window.prompt('Name this view') || '').trim()
+			onClick: async () => {
+				const name = await promptText({
+					title: 'Save view',
+					label: 'View name',
+					placeholder: 'e.g. My high-priority tasks',
+				})
 				if (name) emit('save-view', name)
 			},
 		},

@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { createResource } from 'frappe-ui'
+import { createResource, FrappeUIProvider } from 'frappe-ui'
 import AppSidebar from '@/components/AppSidebar.vue'
 import CommandPalette from '@/components/CommandPalette.vue'
 import TaskDrawer from '@/components/TaskDrawer.vue'
@@ -9,6 +9,8 @@ import CreateIssueDialog from '@/components/CreateIssueDialog.vue'
 import CreateProjectDialog from '@/components/CreateProjectDialog.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import TweaksPanel from '@/components/TweaksPanel.vue'
+import ConfirmHost from '@/components/ConfirmHost.vue'
+import { notifyError } from '@/utils/feedback'
 import { initStore, reloadBootstrap } from '@/data/store'
 import { ui, togglePalette, closePalette, closeDrawer, bumpRefresh, openCreate, closeCreate } from '@/data/ui'
 import { useTweaks } from '@/composables/useTweaks'
@@ -31,7 +33,7 @@ onMounted(async () => {
 		if (res?.key) router.replace(`/projects/${res.key}`)
 		else router.replace('/')
 	} catch (e) {
-		window.alert(e?.messages?.[0] || 'This invite link is invalid or has expired.')
+		notifyError(e, 'This invite link is invalid or has expired.')
 		router.replace('/')
 	}
 })
@@ -49,22 +51,25 @@ useKeyboard({
 </script>
 
 <template>
-	<div class="fu-app">
-		<div class="pjx-app">
-			<AppSidebar />
-			<router-view />
+	<FrappeUIProvider>
+		<div class="fu-app">
+			<div class="pjx-app">
+				<AppSidebar />
+				<router-view />
+			</div>
+			<CommandPalette :open="ui.paletteOpen" @close="closePalette" @new="openCreate(route.params.key || '')" />
+			<TaskDrawer :name="ui.openIssue" @close="closeDrawer" @changed="bumpRefresh" />
+			<CreateIssueDialog
+				:open="ui.createOpen"
+				:default-project="ui.createProject"
+				:default-type="ui.createType"
+				@close="closeCreate"
+				@created="bumpRefresh"
+			/>
+			<CreateProjectDialog :open="ui.createProjectOpen" @close="ui.createProjectOpen = false" />
+			<CreateWorkspaceDialog :open="ui.createWorkspaceOpen" @close="ui.createWorkspaceOpen = false" />
+			<TweaksPanel />
+			<ConfirmHost />
 		</div>
-		<CommandPalette :open="ui.paletteOpen" @close="closePalette" @new="openCreate(route.params.key || '')" />
-		<TaskDrawer :name="ui.openIssue" @close="closeDrawer" @changed="bumpRefresh" />
-		<CreateIssueDialog
-			:open="ui.createOpen"
-			:default-project="ui.createProject"
-			:default-type="ui.createType"
-			@close="closeCreate"
-			@created="bumpRefresh"
-		/>
-		<CreateProjectDialog :open="ui.createProjectOpen" @close="ui.createProjectOpen = false" />
-		<CreateWorkspaceDialog :open="ui.createWorkspaceOpen" @close="ui.createWorkspaceOpen = false" />
-		<TweaksPanel />
-	</div>
+	</FrappeUIProvider>
 </template>

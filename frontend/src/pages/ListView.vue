@@ -9,6 +9,7 @@ import AvatarStack from '@/components/AvatarStack.vue'
 import LivePill from '@/components/LivePill.vue'
 import QuickAdd from '@/components/QuickAdd.vue'
 import { isToday, dueLabel, relativeTime, ageChip } from '@/utils/format'
+import { confirm } from '@/utils/feedback'
 
 const props = defineProps({
 	projectKey: { type: String, required: true },
@@ -50,11 +51,17 @@ function clearSelection() { selected.value = new Set() }
 function names() { return [...selected.value] }
 function bulkStatus(s) { emit('bulk-update', { names: names(), fields: { status: s.name } }); clearSelection() }
 function bulkPriority(p) { emit('bulk-update', { names: names(), fields: { priority: p } }); clearSelection() }
-function bulkDelete() {
-	if (window.confirm(`Delete ${selectedCount.value} task(s)? This cannot be undone.`)) {
-		emit('bulk-delete', { names: names() })
-		clearSelection()
-	}
+async function bulkDelete() {
+	const n = selectedCount.value
+	const ok = await confirm({
+		title: `Delete ${n} task${n === 1 ? '' : 's'}`,
+		message: 'This cannot be undone.',
+		confirmLabel: 'Delete',
+		theme: 'red',
+	})
+	if (!ok) return
+	emit('bulk-delete', { names: names() })
+	clearSelection()
 }
 const statusActions = computed(() =>
 	props.statuses.map((s) => ({ label: s.status_name, onClick: () => bulkStatus(s) })),

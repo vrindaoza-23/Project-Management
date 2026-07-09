@@ -3,6 +3,7 @@ import { ref, watch, onBeforeUnmount, nextTick } from 'vue'
 import { createResource } from 'frappe-ui'
 import Gantt from 'frappe-gantt'
 import Icon from '@/components/Icon.vue'
+import { notifyError } from '@/utils/feedback'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
 const emit = defineEmits(['open'])
@@ -29,7 +30,7 @@ function fmt(d) {
 function onDateChange(task, start, end) {
 	updater
 		.submit({ name: task.id, fields: JSON.stringify({ start_date: fmt(start), due_date: fmt(end) }) })
-		.catch(() => {})
+		.catch((e) => notifyError(e, 'Could not update task dates'))
 }
 
 function render() {

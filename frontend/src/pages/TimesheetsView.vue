@@ -5,6 +5,7 @@ import Icon from '@/components/Icon.vue'
 import TimesheetLogDialog from '@/components/TimesheetLogDialog.vue'
 import { openDrawer } from '@/data/ui'
 import { dueLabel } from '@/utils/format'
+import { notify, notifyError, confirm } from '@/utils/feedback'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
 
@@ -23,9 +24,20 @@ const logged = computed(() => ts.data?.logged || { total_hours: 0, billable_hour
 const maxStatus = computed(() => Math.max(1, ...auto.value.per_status.map((s) => s.avg_days)))
 
 async function removeEntry(e) {
-	if (!window.confirm('Delete this time entry?')) return
-	await remover.submit({ name: e.name })
-	ts.reload()
+	const ok = await confirm({
+		title: 'Delete time entry',
+		message: 'This time entry will be permanently deleted.',
+		confirmLabel: 'Delete',
+		theme: 'red',
+	})
+	if (!ok) return
+	try {
+		await remover.submit({ name: e.name })
+		ts.reload()
+		notify.success('Time entry deleted')
+	} catch (err) {
+		notifyError(err, 'Could not delete time entry')
+	}
 }
 </script>
 

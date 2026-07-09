@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { createResource, Button, Dropdown, FormControl, DatePicker } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import { relativeTime } from '@/utils/format'
+import { notify, notifyError, confirm } from '@/utils/feedback'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
 
@@ -84,10 +85,22 @@ async function save() {
 }
 
 async function removeDoc() {
-	if (!selected.value || !window.confirm('Delete this document?')) return
-	await remover.submit({ name: selected.value })
-	selected.value = null
-	list.reload()
+	if (!selected.value) return
+	const ok = await confirm({
+		title: 'Delete document',
+		message: 'This document will be permanently deleted.',
+		confirmLabel: 'Delete',
+		theme: 'red',
+	})
+	if (!ok) return
+	try {
+		await remover.submit({ name: selected.value })
+		selected.value = null
+		list.reload()
+		notify.success('Document deleted')
+	} catch (e) {
+		notifyError(e, 'Could not delete document')
+	}
 }
 
 const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) }))

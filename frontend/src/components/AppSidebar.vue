@@ -6,6 +6,7 @@ import { createResource } from 'frappe-ui'
 import Icon from './Icon.vue'
 import { store, reloadBootstrap } from '@/data/store'
 import { ui, openCreateProject, openCreateWorkspace, openCreate } from '@/data/ui'
+import { notify, notifyError, promptText } from '@/utils/feedback'
 
 const route = useRoute()
 const projOpen = ref(true)
@@ -81,13 +82,23 @@ const teamCreator = createResource({ url: 'projex.api.create_team' })
 async function newTeam() {
 	const ws = currentWorkspace.value?.name
 	if (!ws) {
-		window.alert('Create a workspace first')
+		notify.warning('Create a workspace first')
 		return
 	}
-	const name = (window.prompt('New team name') || '').trim()
+	const name = await promptText({
+		title: 'New team',
+		label: 'Team name',
+		placeholder: 'e.g. Platform',
+		confirmLabel: 'Create team',
+	})
 	if (!name) return
-	await teamCreator.submit({ workspace: ws, team_name: name })
-	reloadBootstrap()
+	try {
+		await teamCreator.submit({ workspace: ws, team_name: name })
+		reloadBootstrap()
+		notify.success(`Team “${name}” created`)
+	} catch (e) {
+		notifyError(e, 'Could not create team')
+	}
 }
 </script>
 
