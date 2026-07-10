@@ -194,9 +194,12 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 </template>
 
 <style scoped>
-.pjx-tc { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+/* The config ListView doesn't size custom #cell content, so set it explicitly
+   (otherwise it inherits the 16px browser default and reads too big). */
+.pjx-tc { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; font-size: 13px; }
+.pjx-tc :deep(.pjx-title) { font-size: 13px; }
 .pjx-tc--r { justify-content: flex-end; }
-.pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; }
+.pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
 .pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
 .pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
 .pjx-bulkacts { display: flex; align-items: center; gap: 4px; }
