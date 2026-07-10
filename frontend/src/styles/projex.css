@@ -88,6 +88,9 @@ body { background: var(--surface-white); }
 .pjx-moretab { display: inline-flex; align-items: center; gap: 4px; flex: none; border: 0; background: transparent; padding: 6px 10px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; line-height: 16.1px; color: var(--ink-gray-5); white-space: nowrap; }
 .pjx-moretab:hover { color: var(--ink-gray-7); }
 .pjx-moretab.is-active { color: var(--ink-gray-8); }
+/* The overflow-x on the tab strip clips a focus outline into a stray bracket;
+   indicate focus with color instead. */
+.pjx-moretab:focus-visible { outline: none; color: var(--ink-gray-9); }
 
 /* avatar stack */
 .pjx-avstack { display: inline-flex; align-items: center; }
@@ -125,7 +128,7 @@ body { background: var(--surface-white); }
 .pjx-list { padding-bottom: 64px; }
 .pjx-list__bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px 4px; }
 .pjx-list__bar-right { margin-left: auto; display: flex; align-items: center; gap: 6px; color: var(--ink-gray-5); }
-.pjx-row, .pjx-list__head { display: grid; grid-template-columns: 18px minmax(0,1fr) 164px 44px 76px 84px 92px 104px; align-items: center; gap: 12px; padding: 0 16px; }
+.pjx-row, .pjx-list__head { display: grid; grid-template-columns: 18px minmax(0,1fr) 168px 48px 80px 88px 108px; align-items: center; gap: 12px; padding: 0 16px; }
 .pjx-list__head { height: 32px; border-bottom: 1px solid var(--outline-gray-1); color: var(--ink-gray-5); font-size: 11px; letter-spacing: .02em; }
 .pjx-list__head .r { text-align: right; justify-self: end; }
 .pjx-grouphead { display: flex; align-items: center; gap: 8px; padding: 14px 16px 6px; color: var(--ink-gray-7); font-size: 13px; }
