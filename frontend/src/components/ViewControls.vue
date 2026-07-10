@@ -1,9 +1,13 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { Dropdown, Button } from 'frappe-ui'
 import Icon from './Icon.vue'
 import MultiSelectPopover from './MultiSelectPopover.vue'
 import { promptText } from '@/utils/feedback'
+
+// frappe-ui Menu renders a component passed as `icon`; use our Icon so any
+// lucide name works without relying on statically-generated CSS classes.
+const menuIcon = (name) => ({ render: () => h(Icon, { name, size: 15 }) })
 
 const props = defineProps({
 	statuses: { type: Array, default: () => [] },
@@ -23,13 +27,13 @@ const viewOptions = computed(() => {
 	}))
 	const remove = props.savedViews.map((v) => ({
 		label: 'Delete: ' + v.view_name,
-		icon: 'trash-2',
+		icon: menuIcon('trash-2'),
 		onClick: () => emit('delete-view', v),
 	}))
 	return [
 		{
 			label: 'Save current view…',
-			icon: 'plus',
+			icon: menuIcon('plus'),
 			onClick: async () => {
 				const name = await promptText({
 					title: 'Save view',

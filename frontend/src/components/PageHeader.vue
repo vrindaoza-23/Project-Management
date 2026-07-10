@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, h } from 'vue'
 import { Button, Dropdown, TabButtons } from 'frappe-ui'
 import Icon from './Icon.vue'
 import LivePill from './LivePill.vue'
@@ -23,8 +23,16 @@ const props = defineProps({
 })
 const emit = defineEmits(['search', 'new', 'tab', 'settings', 'surface', 'view'])
 
+// Render dropdown icons with our own Icon component (frappe-ui's Menu supports a
+// component as `icon`). This uses the curated lucide registry, so dynamic names
+// work reliably — a `lucide-<name>` class string would need Tailwind to have
+// statically generated that exact class, which it can't for dynamic names.
 const moreOptions = computed(() =>
-	props.moreItems.map((it) => ({ label: it.label, icon: it.icon, onClick: () => emit('surface', it.id) })),
+	props.moreItems.map((it) => ({
+		label: it.label,
+		icon: it.icon ? { render: () => h(Icon, { name: it.icon, size: 16 }) } : undefined,
+		onClick: () => emit('surface', it.id),
+	})),
 )
 const surfaceOptions = computed(() =>
 	props.surfaces.map((s) => ({

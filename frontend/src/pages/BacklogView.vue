@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onBeforeUnmount, h } from 'vue'
 import { createResource, Dropdown, Button, DatePicker, FormControl } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
@@ -67,9 +67,10 @@ function age(i) {
 
 // "Move to" menu (kept as an accessible fallback to drag).
 function moveOptions(issue) {
-	const opts = [{ label: 'Backlog', icon: 'inbox', onClick: () => moveTo(issue, null) }]
+	const menuIcon = (name) => ({ render: () => h(Icon, { name, size: 15 }) })
+	const opts = [{ label: 'Backlog', icon: menuIcon('inbox'), onClick: () => moveTo(issue, null) }]
 	for (const c of cycles.value) {
-		opts.push({ label: c.cycle_name, icon: 'calendar-range', onClick: () => moveTo(issue, c.name) })
+		opts.push({ label: c.cycle_name, icon: menuIcon('calendar-range'), onClick: () => moveTo(issue, c.name) })
 	}
 	return opts
 }
