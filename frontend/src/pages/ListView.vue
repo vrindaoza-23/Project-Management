@@ -1,7 +1,15 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { Dropdown, Button } from 'frappe-ui'
-import { List, ListHeader, ListHeaderCell, ListGroup, ListRow, ListCell } from 'frappe-ui/list'
+import { computed, ref } from 'vue'
+import {
+	ListView,
+	ListHeader,
+	ListGroups,
+	ListRows,
+	ListEmptyState,
+	ListSelectBanner,
+	Dropdown,
+	Button,
+} from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
@@ -24,75 +32,32 @@ const props = defineProps({
 const emit = defineEmits(['open', 'created', 'bulk-update', 'bulk-delete'])
 
 const statusById = computed(() => Object.fromEntries(props.statuses.map((s) => [s.name, s])))
-
 const PRIORITY_ORDER = ['Urgent', 'High', 'Medium', 'Low', 'None']
 
-// Grid tracks shared by the header and every row (frappe-ui/list --list-columns).
-// Optional columns can be toggled off from the toolbar's Columns control.
-const COL_TRACK = { labels: '168px', pts: '48px', due: '80px', updated: '88px', assignees: '108px' }
-const COLUMNS = computed(() => {
-	const tracks = ['18px', 'minmax(0,1fr)']
-	for (const id of ['labels', 'pts', 'due', 'updated', 'assignees']) {
-		if (props.cols[id]) tracks.push(COL_TRACK[id])
-	}
-	return tracks
+// Column config for the frappe-ui ListView (Task fixed; the rest toggle from the
+// toolbar's Columns control). `width` feeds the grid template.
+const columns = computed(() => {
+	const c = [{ label: 'Task', key: 'title', width: 'minmax(280px, 2fr)' }]
+	if (props.cols.labels) c.push({ label: 'Labels', key: 'labels', width: '180px' })
+	if (props.cols.pts) c.push({ label: 'Pts', key: 'estimate', width: '56px', align: 'right' })
+	if (props.cols.due) c.push({ label: 'Due', key: 'due_date', width: '92px', align: 'right' })
+	if (props.cols.updated) c.push({ label: 'Updated', key: 'modified', width: '92px', align: 'right' })
+	if (props.cols.assignees) c.push({ label: 'Assignees', key: 'assignees', width: '112px', align: 'right' })
+	return c
 })
-const listStyle = {
-	'--list-gap': '12px',
-	'--list-row-padding-x': '16px',
-	'--list-row-height': '46px',
-}
 
-// The open task highlights via the List's active row.
-const active = ref(null)
 function open(name) {
-	active.value = name
 	emit('open', name)
 }
+const listOptions = computed(() => ({
+	selectable: true,
+	showTooltip: false,
+	rowHeight: '46px',
+	onRowClick: (row) => open(row.name),
+	emptyState: { title: 'No tasks yet', description: 'Create one above to get started.' },
+}))
 
-// ---- multi-select / bulk actions (app-owned, so click still opens) ----
-const selected = ref(new Set())
-watch(
-	() => props.issues,
-	(rows) => {
-		const live = new Set(rows.map((r) => r.name))
-		selected.value.forEach((id) => { if (!live.has(id)) selected.value.delete(id) })
-		selected.value = new Set(selected.value)
-	},
-)
-const selectedCount = computed(() => selected.value.size)
-const allSelected = computed(() => props.issues.length > 0 && selected.value.size === props.issues.length)
-function isSelected(name) { return selected.value.has(name) }
-function toggleRow(name) {
-	const s = new Set(selected.value)
-	s.has(name) ? s.delete(name) : s.add(name)
-	selected.value = s
-}
-function toggleAll() {
-	selected.value = allSelected.value ? new Set() : new Set(props.issues.map((i) => i.name))
-}
-function clearSelection() { selected.value = new Set() }
-function names() { return [...selected.value] }
-function bulkStatus(s) { emit('bulk-update', { names: names(), fields: { status: s.name } }); clearSelection() }
-function bulkPriority(p) { emit('bulk-update', { names: names(), fields: { priority: p } }); clearSelection() }
-async function bulkDelete() {
-	const n = selectedCount.value
-	const ok = await confirm({
-		title: `Delete ${n} task${n === 1 ? '' : 's'}`,
-		message: 'This cannot be undone.',
-		confirmLabel: 'Delete',
-		theme: 'red',
-	})
-	if (!ok) return
-	emit('bulk-delete', { names: names() })
-	clearSelection()
-}
-const statusActions = computed(() =>
-	props.statuses.map((s) => ({ label: s.status_name, onClick: () => bulkStatus(s) })),
-)
-const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bulkPriority(p) }))
-
-// Group issues by the active groupBy; hide empty groups.
+// Group issues by the active groupBy into the ListView's grouped-rows shape.
 const groups = computed(() => {
 	if (props.groupBy === 'none') {
 		return props.issues.length ? [{ key: 'all', label: 'All issues', items: props.issues }] : []
@@ -108,169 +73,131 @@ const groups = computed(() => {
 		.map((s) => ({ key: s.name, label: s.status_name, status: s, items: props.issues.filter((i) => i.status === s.name) }))
 		.filter((g) => g.items.length)
 })
+const groupedRows = computed(() =>
+	groups.value.map((g) => ({ group: g.label, key: g.key, status: g.status, priority: g.priority, rows: g.items })),
+)
+
+// ---- bulk actions: selection is owned by ListView; we mirror it for the banner ----
+const listRef = ref(null)
+const selected = ref([])
+function onSelections(set) {
+	selected.value = [...set]
+}
+function clearSelection() {
+	listRef.value?.toggleAllRows(false)
+	selected.value = []
+}
+function bulkStatus(s) { emit('bulk-update', { names: selected.value, fields: { status: s.name } }); clearSelection() }
+function bulkPriority(p) { emit('bulk-update', { names: selected.value, fields: { priority: p } }); clearSelection() }
+async function bulkDelete() {
+	const n = selected.value.length
+	const ok = await confirm({
+		title: `Delete ${n} task${n === 1 ? '' : 's'}`,
+		message: 'This cannot be undone.',
+		confirmLabel: 'Delete',
+		theme: 'red',
+	})
+	if (!ok) return
+	emit('bulk-delete', { names: selected.value })
+	clearSelection()
+}
+const statusActions = computed(() => props.statuses.map((s) => ({ label: s.status_name, onClick: () => bulkStatus(s) })))
+const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bulkPriority(p) }))
 </script>
 
 <template>
 	<div class="pjx-list">
-		<List :columns="COLUMNS" v-model:active="active" divider="full" :style="listStyle" class="pjx-tasklist">
-			<ListHeader>
-				<ListHeaderCell>
-					<input type="checkbox" class="pjx-check is-on" :checked="allSelected" @change="toggleAll" />
-				</ListHeaderCell>
-				<ListHeaderCell>Task</ListHeaderCell>
-				<ListHeaderCell v-if="cols.labels">Labels</ListHeaderCell>
-				<ListHeaderCell v-if="cols.pts" class="justify-end">Pts</ListHeaderCell>
-				<ListHeaderCell v-if="cols.due" class="justify-end">Due</ListHeaderCell>
-				<ListHeaderCell v-if="cols.updated" class="justify-end">Updated</ListHeaderCell>
-				<ListHeaderCell v-if="cols.assignees" class="justify-end">Assignees</ListHeaderCell>
-			</ListHeader>
+		<ListView
+			ref="listRef"
+			class="pjx-tasklist"
+			:columns="columns"
+			:rows="groupedRows"
+			row-key="name"
+			:options="listOptions"
+			@update:selections="onSelections"
+		>
+			<template #group-header="{ group }">
+				<span class="pjx-grouphead">
+					<StatusDot v-if="group.status" :status="group.status" />
+					<PriorityBars v-else-if="group.priority" :priority="group.priority" />
+					<span class="pjx-grouphead__name">{{ group.group }}</span>
+					<span class="pjx-grouphead__count">{{ group.rows.length }}</span>
+				</span>
+			</template>
 
-			<ListGroup v-for="g in groups" :key="g.key">
-				<template #header>
-					<span class="pjx-grouphead">
-						<StatusDot v-if="g.status" :status="g.status" />
-						<PriorityBars v-else-if="g.priority" :priority="g.priority" />
-						<span class="pjx-grouphead__name">{{ g.label }}</span>
-						<span class="pjx-grouphead__count">{{ g.items.length }}</span>
-					</span>
-				</template>
-
-				<ListRow
-					v-for="it in g.items"
-					:key="it.name"
-					:value="it.name"
-					:class="{ 'pjx-selected': isSelected(it.name) }"
-					@click="open(it.name)"
-				>
-					<ListCell class="pjx-lead">
-						<input
-							type="checkbox"
-							class="pjx-check"
-							:class="{ 'is-on': isSelected(it.name) }"
-							:checked="isSelected(it.name)"
-							@click.stop
-							@change="toggleRow(it.name)"
-						/>
-						<span class="pjx-leadprio"><PriorityBars :priority="it.priority" /></span>
-					</ListCell>
-					<ListCell class="pjx-titlecell">
-						<StatusDot v-if="groupBy !== 'status'" :status="statusById[it.status]" />
-						<span class="pjx-id">{{ it.issue_id }}</span>
-						<span class="pjx-title">{{ it.title }}</span>
-						<span v-if="it.sub_total" class="pjx-meta">
-							<Icon name="list-checks" :size="13" />{{ it.sub_done }}/{{ it.sub_total }}
-						</span>
-						<span v-if="it.comment_count" class="pjx-meta">
-							<Icon name="message-square" :size="13" />{{ it.comment_count }}
-						</span>
-						<LivePill :users="presence[it.name] || []" />
-					</ListCell>
-					<ListCell v-if="cols.labels">
-						<LabelChip v-for="l in it.labels.slice(0, 2)" :key="l.label" :label="l" />
-						<span v-if="it.labels.length > 2" class="pjx-dim t-xs">+{{ it.labels.length - 2 }}</span>
-					</ListCell>
-					<ListCell v-if="cols.pts" class="justify-end">
-						<span v-if="it.estimate" class="pjx-pts">{{ it.estimate }}</span>
+			<template #cell="{ column, row }">
+				<div class="pjx-tc" :class="{ 'pjx-tc--r': column.align === 'right' }">
+					<template v-if="column.key === 'title'">
+						<PriorityBars :priority="row.priority" />
+						<StatusDot v-if="groupBy !== 'status'" :status="statusById[row.status]" />
+						<span class="pjx-id">{{ row.issue_id }}</span>
+						<span class="pjx-title">{{ row.title }}</span>
+						<span v-if="row.sub_total" class="pjx-meta"><Icon name="list-checks" :size="13" />{{ row.sub_done }}/{{ row.sub_total }}</span>
+						<span v-if="row.comment_count" class="pjx-meta"><Icon name="message-square" :size="13" />{{ row.comment_count }}</span>
+						<LivePill :users="presence[row.name] || []" />
+					</template>
+					<template v-else-if="column.key === 'labels'">
+						<LabelChip v-for="l in row.labels.slice(0, 2)" :key="l.label" :label="l" />
+						<span v-if="row.labels.length > 2" class="pjx-dim t-xs">+{{ row.labels.length - 2 }}</span>
+					</template>
+					<template v-else-if="column.key === 'estimate'">
+						<span v-if="row.estimate" class="pjx-pts">{{ row.estimate }}</span>
 						<span v-else class="pjx-dim">–</span>
-					</ListCell>
-					<ListCell v-if="cols.due" class="justify-end">
-						<span v-if="it.due_date" class="pjx-due" :data-tone="dueTone(it.due_date)">{{ dueLabel(it.due_date) }}</span>
+					</template>
+					<template v-else-if="column.key === 'due_date'">
+						<span v-if="row.due_date" class="pjx-due" :data-tone="dueTone(row.due_date)">{{ dueLabel(row.due_date) }}</span>
 						<span v-else class="pjx-dim">–</span>
-					</ListCell>
-					<ListCell v-if="cols.updated" class="justify-end"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></ListCell>
-					<ListCell v-if="cols.assignees" class="justify-end">
-						<AvatarStack v-if="it.assignees.length" :users="it.assignees" :size="22" />
+					</template>
+					<template v-else-if="column.key === 'modified'">
+						<span class="pjx-dim t-xs">{{ relativeTime(row.modified) }}</span>
+					</template>
+					<template v-else-if="column.key === 'assignees'">
+						<AvatarStack v-if="row.assignees.length" :users="row.assignees" :size="22" />
 						<span v-else class="pjx-noass">–</span>
-					</ListCell>
-				</ListRow>
-			</ListGroup>
-		</List>
+					</template>
+				</div>
+			</template>
 
-		<QuickAdd v-if="groups.length" :project-key="projectKey" @created="emit('created')" />
+			<!-- Override the default layout only to put our bulk actions in the
+			     native selection banner. group-header/cell slots still apply. -->
+			<template #default="{ showGroupedRows, selectable }">
+				<ListHeader />
+				<template v-if="groupedRows.length">
+					<ListGroups v-if="showGroupedRows" />
+					<ListRows v-else />
+				</template>
+				<ListEmptyState v-else />
+				<ListSelectBanner v-if="selectable">
+					<template #actions>
+						<div class="pjx-bulkacts">
+							<Dropdown :options="statusActions">
+								<Button variant="ghost" theme="gray">
+									<template #prefix><Icon name="circle-dot" :size="14" /></template>Status
+								</Button>
+							</Dropdown>
+							<Dropdown :options="priorityActions">
+								<Button variant="ghost" theme="gray">
+									<template #prefix><Icon name="bar-chart-3" :size="14" /></template>Priority
+								</Button>
+							</Dropdown>
+							<Button variant="ghost" theme="gray" @click="bulkDelete">
+								<template #prefix><Icon name="trash-2" :size="14" /></template>Delete
+							</Button>
+						</div>
+					</template>
+				</ListSelectBanner>
+			</template>
+		</ListView>
 
-		<div v-if="!loading && !groups.length" class="pjx-soon" style="height: 320px">
-			<span class="pjx-soon__icon"><Icon name="inbox" :size="20" /></span>
-			<div class="t-base ink-7" style="font-weight: 500">No tasks yet</div>
-			<div class="t-sm ink-4">Create one above to get started.</div>
-		</div>
-
-		<Transition name="pjx-bulkbar">
-			<div v-if="selectedCount" class="pjx-bulkbar">
-				<span class="pjx-bulkbar__count">{{ selectedCount }} selected</span>
-				<Dropdown :options="statusActions">
-					<Button variant="ghost" theme="gray">
-						<template #prefix><Icon name="circle-dot" :size="14" /></template>
-						Status
-					</Button>
-				</Dropdown>
-				<Dropdown :options="priorityActions">
-					<Button variant="ghost" theme="gray">
-						<template #prefix><Icon name="bar-chart-3" :size="14" /></template>
-						Priority
-					</Button>
-				</Dropdown>
-				<Button variant="ghost" theme="gray" @click="bulkDelete">
-					<template #prefix><Icon name="trash-2" :size="14" /></template>
-					Delete
-				</Button>
-				<span class="pjx-bulkbar__sep" />
-				<Button variant="ghost" theme="gray" @click="clearSelection">Clear</Button>
-			</div>
-		</Transition>
+		<QuickAdd v-if="groupedRows.length" :project-key="projectKey" @created="emit('created')" />
 	</div>
 </template>
 
 <style scoped>
-/* Helpdesk-style calm rhythm: a subtle header band + generous group spacing. */
-.pjx-tasklist :deep([data-slot='list-header']) {
-	height: 40px;
-	background: var(--surface-gray-1);
-	border-radius: 8px;
-	font-size: 12px;
-	font-weight: 500;
-	color: var(--ink-gray-6);
-	margin-bottom: 2px;
-}
-.pjx-tasklist :deep([data-slot='list-group-header']) {
-	height: 44px;
-	font-size: 13px;
-}
+.pjx-tc { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; }
+.pjx-tc--r { justify-content: flex-end; }
 .pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; }
 .pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
 .pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
-
-/* Leading cell: priority bars by default, checkbox on hover or when selected. */
-.pjx-lead { position: relative; gap: 8px; }
-.pjx-check { cursor: pointer; accent-color: var(--surface-gray-7); }
-.pjx-lead .pjx-check { display: none; }
-:deep([data-slot='list-row']:hover) .pjx-lead .pjx-check,
-.pjx-lead .pjx-check.is-on { display: inline-block; }
-:deep([data-slot='list-row']:hover) .pjx-lead .pjx-leadprio,
-.pjx-check.is-on + .pjx-leadprio { display: none; }
-.pjx-selected { background: var(--surface-gray-2); }
-
-.pjx-titlecell { gap: 9px; }
-
-/* Floating bulk action bar */
-.pjx-bulkbar {
-	position: sticky;
-	bottom: 16px;
-	z-index: var(--z-raised);
-	margin: 16px auto 0;
-	width: fit-content;
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	padding: 6px 10px;
-	background: var(--surface-white);
-	border: 1px solid var(--outline-gray-2);
-	border-radius: 10px;
-	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
-}
-.pjx-bulkbar__count { font-size: 12px; font-weight: 600; color: var(--ink-gray-7); padding: 0 8px; }
-.pjx-bulkbar__sep { width: 1px; height: 18px; background: var(--outline-gray-2); margin: 0 2px; }
-.pjx-bulkbar-enter-active,
-.pjx-bulkbar-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
-.pjx-bulkbar-enter-from,
-.pjx-bulkbar-leave-to { opacity: 0; transform: translateY(8px); }
+.pjx-bulkacts { display: flex; align-items: center; gap: 4px; }
 </style>
