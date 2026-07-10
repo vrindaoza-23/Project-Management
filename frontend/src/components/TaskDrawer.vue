@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { createResource, Dropdown, Button, Avatar, DatePicker, Checkbox } from 'frappe-ui'
+import { createResource, Dropdown, Button, Avatar, DatePicker, Checkbox, TabButtons } from 'frappe-ui'
 import Icon from './Icon.vue'
 import StatusDot from './StatusDot.vue'
 import PriorityBars from './PriorityBars.vue'
@@ -478,12 +478,15 @@ async function removeLink(name) {
 						/>
 					</div>
 
-					<div class="tabs">
-						<div class="tab" :class="{ active: tab === 'comments' }" @click="tab = 'comments'">Comments</div>
-						<div class="tab" :class="{ active: tab === 'activity' }" @click="tab = 'activity'">Activity</div>
-						<div class="tab" :class="{ active: tab === 'files' }" @click="tab = 'files'">Files</div>
-						<div class="tab" :class="{ active: tab === 'links' }" @click="tab = 'links'">Linked work</div>
-					</div>
+					<TabButtons
+						v-model="tab"
+						:options="[
+							{ label: 'Comments', value: 'comments' },
+							{ label: 'Activity', value: 'activity' },
+							{ label: 'Files', value: 'files' },
+							{ label: 'Linked work', value: 'links' },
+						]"
+					/>
 
 					<div v-if="tab === 'comments'" class="pjx-comments">
 						<div v-for="c in comments" :key="c.name" class="pjx-comment">
