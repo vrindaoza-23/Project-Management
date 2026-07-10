@@ -175,7 +175,7 @@ async function sendReply() {
 								placeholder="Reply…"
 								@keydown.enter="sendReply"
 							/>
-							<Button variant="solid" theme="blue" @click="sendReply">Send</Button>
+							<Button variant="solid" theme="gray" @click="sendReply">Send</Button>
 						</div>
 					</template>
 					<div v-else class="pjx-inbox__empty" style="padding: 40px">Select a notification.</div>
@@ -205,7 +205,7 @@ async function sendReply() {
 				</div>
 			</template>
 			<template #actions>
-				<Button variant="solid" theme="blue" :loading="prefsSaver.loading" @click="savePrefs">Save</Button>
+				<Button variant="solid" theme="gray" :loading="prefsSaver.loading" @click="savePrefs">Save</Button>
 				<Button variant="subtle" theme="gray" @click="prefsOpen = false">Cancel</Button>
 			</template>
 		</Dialog>

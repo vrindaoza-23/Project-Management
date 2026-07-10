@@ -67,7 +67,7 @@ async function submit() {
 		<template #actions>
 			<div class="flex" style="gap: 8px; justify-content: flex-end; width: 100%">
 				<Button variant="subtle" theme="gray" @click="emit('close')">Cancel</Button>
-				<Button variant="solid" theme="blue" :loading="completer.loading" @click="submit">Complete sprint</Button>
+				<Button variant="solid" theme="gray" :loading="completer.loading" @click="submit">Complete sprint</Button>
 			</div>
 		</template>
 	</Dialog>

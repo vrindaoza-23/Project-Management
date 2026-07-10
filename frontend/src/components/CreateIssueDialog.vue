@@ -139,7 +139,7 @@ async function submit() {
 		<template #actions>
 			<div class="flex" style="gap: 8px; justify-content: flex-end; width: 100%">
 				<Button variant="subtle" theme="gray" @click="emit('close')">Cancel</Button>
-				<Button variant="solid" theme="blue" :loading="creator.loading" @click="submit">
+				<Button variant="solid" theme="gray" :loading="creator.loading" @click="submit">
 					<template #prefix><Icon name="plus" :size="14" /></template>
 					Create task
 				</Button>

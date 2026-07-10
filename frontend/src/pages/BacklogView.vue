@@ -221,7 +221,7 @@ const completeIssues = computed(() =>
 					<DatePicker v-model="draft.end" placeholder="End date" />
 				</div>
 				<div class="flex g-2">
-					<Button variant="solid" theme="blue" size="sm" :loading="cycleCreate.loading" @click="addSprint">Create</Button>
+					<Button variant="solid" theme="gray" size="sm" :loading="cycleCreate.loading" @click="addSprint">Create</Button>
 					<Button variant="ghost" theme="gray" size="sm" @click="adding = false">Cancel</Button>
 				</div>
 			</div>

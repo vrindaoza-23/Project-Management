@@ -74,7 +74,7 @@ async function removeEntry(e) {
 		<div class="pjx-panel">
 			<div class="pjx-panel__h" style="display: flex; align-items: center; justify-content: space-between">
 				<span>Logged time</span>
-				<Button variant="solid" theme="blue" size="sm" @click="logOpen = true">
+				<Button variant="solid" theme="gray" size="sm" @click="logOpen = true">
 					<template #prefix><Icon name="plus" :size="13" /></template>Log time
 				</Button>
 			</div>

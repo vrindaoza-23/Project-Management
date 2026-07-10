@@ -37,7 +37,7 @@ const maxPrio = computed(() => Math.max(1, ...byPriority.value.map((p) => p.coun
 	<div class="pjx-dash">
 		<div class="pjx-dash__bar">
 			<h3 class="pjx-dash__title">Issues dashboard</h3>
-			<Button variant="solid" theme="blue" @click="openReportBug(projectKey)">
+			<Button variant="solid" theme="gray" @click="openReportBug(projectKey)">
 				<template #prefix><Icon name="bug" :size="14" /></template>Report bug
 			</Button>
 		</div>

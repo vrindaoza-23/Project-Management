@@ -419,7 +419,7 @@ async function removeLink(name) {
 								@keydown.meta.enter="saveDesc"
 							/>
 							<div class="flex g-2" style="margin-top: 6px">
-								<Button variant="solid" theme="blue" @click="saveDesc">Save</Button>
+								<Button variant="solid" theme="gray" @click="saveDesc">Save</Button>
 								<Button variant="subtle" theme="gray" @click="editingDesc = false">Cancel</Button>
 							</div>
 						</div>
@@ -546,7 +546,7 @@ async function removeLink(name) {
 								</div>
 								<div class="pjx-commentbox__foot">
 									<span style="flex: 1" />
-									<Button variant="solid" theme="blue" @click="postComment">Comment</Button>
+									<Button variant="solid" theme="gray" @click="postComment">Comment</Button>
 								</div>
 							</div>
 						</div>

@@ -93,7 +93,7 @@ const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, val
 			<Button v-if="showSettings" variant="ghost" theme="gray" title="Project settings" @click="emit('settings')">
 				<template #icon><Icon name="settings" :size="16" /></template>
 			</Button>
-			<Button variant="solid" theme="blue" @click="emit('new')">
+			<Button variant="solid" theme="gray" @click="emit('new')">
 				<template #prefix><Icon name="plus" :size="15" /></template>
 				New task
 			</Button>

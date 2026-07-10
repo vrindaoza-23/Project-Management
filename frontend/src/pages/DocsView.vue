@@ -117,7 +117,7 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 		<div class="pjx-docs__list">
 			<div class="pjx-docs__lhead">
 				<Dropdown :options="newOptions">
-					<Button variant="solid" theme="blue" size="sm" style="width: 100%">
+					<Button variant="solid" theme="gray" size="sm" style="width: 100%">
 						<template #prefix><Icon name="plus" :size="14" /></template>New document
 					</Button>
 				</Dropdown>
@@ -170,7 +170,7 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 					@change="(html) => (draft.content = html)"
 				/>
 				<div class="flex g-2" style="margin-top: 10px">
-					<Button variant="solid" theme="blue" :loading="creator.loading || updater.loading" @click="save">Save</Button>
+					<Button variant="solid" theme="gray" :loading="creator.loading || updater.loading" @click="save">Save</Button>
 					<Button variant="subtle" theme="gray" @click="editing = false">Cancel</Button>
 				</div>
 			</template>
