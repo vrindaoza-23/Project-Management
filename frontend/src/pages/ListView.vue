@@ -9,7 +9,7 @@ import LabelChip from '@/components/LabelChip.vue'
 import AvatarStack from '@/components/AvatarStack.vue'
 import LivePill from '@/components/LivePill.vue'
 import QuickAdd from '@/components/QuickAdd.vue'
-import { isToday, dueLabel, relativeTime } from '@/utils/format'
+import { dueLabel, dueTone, relativeTime } from '@/utils/format'
 import { confirm } from '@/utils/feedback'
 
 const props = defineProps({
@@ -165,7 +165,7 @@ const groups = computed(() => {
 						<span v-else class="pjx-dim">–</span>
 					</ListCell>
 					<ListCell class="justify-end">
-						<span v-if="it.due_date" class="pjx-due" :class="{ 'is-today': isToday(it.due_date) }">{{ dueLabel(it.due_date) }}</span>
+						<span v-if="it.due_date" class="pjx-due" :data-tone="dueTone(it.due_date)">{{ dueLabel(it.due_date) }}</span>
 						<span v-else class="pjx-dim">–</span>
 					</ListCell>
 					<ListCell class="justify-end"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></ListCell>

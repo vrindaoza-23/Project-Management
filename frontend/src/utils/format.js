@@ -13,6 +13,20 @@ export function dueLabel(dateStr) {
 	return d.toLocaleDateString(undefined, opts)
 }
 
+export function isOverdue(dateStr) {
+	if (!dateStr || isToday(dateStr)) return false
+	return new Date(dateStr) < new Date(new Date().toDateString())
+}
+
+// Semantic tone for a due date, for the list's colored pill:
+//   overdue → red, today → amber, else none (plain text).
+export function dueTone(dateStr) {
+	if (!dateStr) return 'none'
+	if (isOverdue(dateStr)) return 'overdue'
+	if (isToday(dateStr)) return 'today'
+	return 'none'
+}
+
 export function relativeTime(dateStr) {
 	if (!dateStr) return ''
 	const then = new Date(dateStr.replace(' ', 'T'))

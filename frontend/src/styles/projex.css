@@ -154,7 +154,9 @@ body { background: var(--surface-white); }
 .pjx-label__dot { width: 6px; height: 6px; border-radius: 9999px; flex: none; }
 .pjx-pts { display: inline-grid; place-items: center; min-width: 22px; height: 18px; padding: 0 5px; border-radius: 4px; background: var(--surface-gray-2); color: var(--ink-gray-7); font-size: 12px; font-variant-numeric: tabular-nums; }
 .pjx-due { font-size: 12px; color: var(--ink-gray-7); font-variant-numeric: tabular-nums; }
-.pjx-due.is-today { color: var(--ink-red-3); }
+/* Semantic due pills (Helpdesk-style): only the urgent ones get color. */
+.pjx-due[data-tone='overdue'] { padding: 1px 8px; border-radius: 9999px; background: var(--surface-red-2); color: var(--ink-red-3); font-weight: 500; }
+.pjx-due[data-tone='today'] { padding: 1px 8px; border-radius: 9999px; background: var(--surface-amber-1); color: var(--ink-amber-3); font-weight: 500; }
 .pjx-noass { color: var(--ink-gray-4); font-size: 12px; }
 
 /* ─────────────────────── Board ─────────────────────── */
