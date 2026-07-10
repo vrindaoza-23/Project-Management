@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
-import { createResource, Dialog, Button, Avatar, DatePicker } from 'frappe-ui'
+import { createResource, Dialog, Button, Avatar, DatePicker, FormControl, TabButtons } from 'frappe-ui'
 import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import NativeSelect from './NativeSelect.vue'
@@ -275,10 +275,8 @@ async function duplicate() {
 	<Dialog :model-value="open" @update:model-value="(v) => !v && emit('close')" :options="{ size: '2xl' }">
 		<template #body-title><h3 class="t-lg" style="font-weight: 600">Project settings · {{ project }}</h3></template>
 		<template #body-content>
-			<div class="tabs" style="margin-bottom: 14px">
-				<div v-for="t in TABS" :key="t.id" class="tab" :class="{ active: tab === t.id }" @click="tab = t.id">
-					{{ t.label }}
-				</div>
+			<div style="margin-bottom: 14px">
+				<TabButtons v-model="tab" :options="TABS.map((t) => ({ label: t.label, value: t.id }))" />
 			</div>
 
 			<div v-if="!canManage" class="t-sm ink-5" style="padding: 8px 0">
@@ -287,11 +285,11 @@ async function duplicate() {
 
 			<!-- GENERAL -->
 			<div v-show="tab === 'general'" class="flex col g-3">
-				<label class="flex col g-1">
+				<div class="flex col g-1">
 					<span class="t-xs ink-5">Name</span>
-					<input v-model="gen.project_name" class="input" :disabled="!canManage" placeholder="Project name" />
+					<FormControl v-model="gen.project_name" type="text" :disabled="!canManage" placeholder="Project name" />
 					<span class="t-2xs ink-5">Edit the name to rename the project, then “Save changes”. The project key ({{ detail.data?.project?.key }}) is fixed.</span>
-				</label>
+				</div>
 				<div class="flex col g-1">
 					<span class="t-xs ink-5">Status</span>
 					<SelectField
@@ -360,12 +358,11 @@ async function duplicate() {
 					</div>
 					<div class="flex col g-1">
 						<span class="t-xs ink-5">Invite by email — paste many (commas, spaces or new lines)</span>
-						<textarea
+						<FormControl
 							v-model="bulkEmails"
-							class="input"
-							rows="2"
+							type="textarea"
+							:rows="2"
 							placeholder="ann@company.com, ben@company.com&#10;cara@company.com"
-							style="resize: vertical; font-family: var(--font-sans)"
 						/>
 						<div class="flex g-2" style="justify-content: flex-end">
 							<Button variant="subtle" theme="gray" :loading="bulkInviter.loading" :disabled="!bulkEmails.trim()" @click="bulkInvite">Send invites</Button>
@@ -387,7 +384,7 @@ async function duplicate() {
 							<Button variant="subtle" theme="gray" :loading="linkCreator.loading" @click="makeInviteLink">Create link</Button>
 						</div>
 						<div v-for="lk in inviteLinks" :key="lk.name" class="flex items-center g-2 pjx-linkrow">
-							<input class="input" :value="lk.url" readonly style="flex: 1; font-size: 12px" @focus="(e) => e.target.select()" />
+							<FormControl class="pjx-linkurl" type="text" :model-value="lk.url" readonly @focus="(e) => e.target.select()" />
 							<Button variant="ghost" theme="gray" title="Copy" @click="copyLink(lk.url)">
 								<template #icon><Icon name="copy" :size="14" /></template>
 							</Button>
@@ -410,10 +407,10 @@ async function duplicate() {
 					<span v-if="!(detail.data?.labels || []).length" class="pjx-dim t-xs">No project labels yet.</span>
 				</div>
 				<div v-if="canManage" class="flex g-2 items-end">
-					<label class="flex col g-1" style="flex: 1">
+					<div class="flex col g-1" style="flex: 1">
 						<span class="t-xs ink-5">New label</span>
-						<input v-model="newLabel.name" class="input" placeholder="e.g. frontend" />
-					</label>
+						<FormControl v-model="newLabel.name" type="text" placeholder="e.g. frontend" />
+					</div>
 					<div class="flex g-1">
 						<button v-for="c in COLORS" :key="c" class="pjx-sw sm" :class="{ on: newLabel.color === c }" :style="{ background: c }" @click="newLabel.color = c" />
 					</div>
@@ -433,7 +430,7 @@ async function duplicate() {
 				</div>
 				<div v-if="canManage" class="flex col g-2">
 					<div class="flex g-2">
-						<input v-model="newCycle.name" class="input" placeholder="Cycle name" style="flex: 1" />
+						<FormControl v-model="newCycle.name" type="text" placeholder="Cycle name" style="flex: 1" />
 						<DatePicker v-model="newCycle.start" placeholder="Start date" />
 						<DatePicker v-model="newCycle.end" placeholder="End date" />
 					</div>
