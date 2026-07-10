@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { Dropdown, Button } from 'frappe-ui'
+import { List, ListHeader, ListHeaderCell, ListGroup, ListRow, ListCell } from 'frappe-ui/list'
 import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
@@ -25,9 +26,23 @@ const statusById = computed(() => Object.fromEntries(props.statuses.map((s) => [
 
 const PRIORITY_ORDER = ['Urgent', 'High', 'Medium', 'Low', 'None']
 
-// ---- multi-select / bulk actions ----
+// Grid tracks shared by the header and every row (frappe-ui/list --list-columns).
+const COLUMNS = ['18px', 'minmax(0,1fr)', '168px', '48px', '80px', '88px', '108px']
+const listStyle = {
+	'--list-gap': '12px',
+	'--list-row-padding-x': '16px',
+	'--list-row-height': 'var(--row-h)',
+}
+
+// The open task highlights via the List's active row.
+const active = ref(null)
+function open(name) {
+	active.value = name
+	emit('open', name)
+}
+
+// ---- multi-select / bulk actions (app-owned, so click still opens) ----
 const selected = ref(new Set())
-// Drop ids that have scrolled out of the current result set.
 watch(
 	() => props.issues,
 	(rows) => {
@@ -90,44 +105,37 @@ const groups = computed(() => {
 	<div class="pjx-list">
 		<QuickAdd :project-key="projectKey" @created="emit('created')" />
 
-		<div class="pjx-list__head">
-			<span class="pjx-lead"
-				><input type="checkbox" class="pjx-check is-on" :checked="allSelected" @change="toggleAll"
-			/></span>
-			<span>Task</span>
-			<span>Labels</span>
-			<span class="r">Pts</span>
-			<span class="r">Due</span>
-			<span class="r">Updated</span>
-			<span class="r">Assignees</span>
-		</div>
+		<List :columns="COLUMNS" v-model:active="active" divider="full" :style="listStyle" class="pjx-tasklist">
+			<ListHeader>
+				<ListHeaderCell>
+					<input type="checkbox" class="pjx-check is-on" :checked="allSelected" @change="toggleAll" />
+				</ListHeaderCell>
+				<ListHeaderCell>Task</ListHeaderCell>
+				<ListHeaderCell>Labels</ListHeaderCell>
+				<ListHeaderCell class="justify-end">Pts</ListHeaderCell>
+				<ListHeaderCell class="justify-end">Due</ListHeaderCell>
+				<ListHeaderCell class="justify-end">Updated</ListHeaderCell>
+				<ListHeaderCell class="justify-end">Assignees</ListHeaderCell>
+			</ListHeader>
 
-		<template v-if="loading">
-			<div v-for="n in 6" :key="n" class="pjx-row" style="opacity: 0.5">
-				<span class="pjx-cell"></span>
-				<span class="pjx-cell pjx-titlecell">
-					<span class="pjx-skel" style="width: 40%" />
-				</span>
-			</div>
-		</template>
+			<ListGroup v-for="g in groups" :key="g.key">
+				<template #header>
+					<span class="pjx-grouphead">
+						<StatusDot v-if="g.status" :status="g.status" />
+						<PriorityBars v-else-if="g.priority" :priority="g.priority" />
+						<span class="pjx-grouphead__name">{{ g.label }}</span>
+						<span class="pjx-grouphead__count">{{ g.items.length }}</span>
+					</span>
+				</template>
 
-		<template v-else>
-			<div v-for="g in groups" :key="g.key">
-				<div class="pjx-grouphead">
-					<StatusDot v-if="g.status" :status="g.status" />
-					<PriorityBars v-else-if="g.priority" :priority="g.priority" />
-					<span class="pjx-grouphead__name">{{ g.label }}</span>
-					<span class="pjx-grouphead__count">{{ g.items.length }}</span>
-				</div>
-
-				<div
-						v-for="it in g.items"
-						:key="it.name"
-						class="pjx-row"
-						:class="{ 'is-selected': isSelected(it.name) }"
-						@click="emit('open', it.name)"
-					>
-					<span class="pjx-cell pjx-lead">
+				<ListRow
+					v-for="it in g.items"
+					:key="it.name"
+					:value="it.name"
+					:class="{ 'pjx-selected': isSelected(it.name) }"
+					@click="open(it.name)"
+				>
+					<ListCell class="pjx-lead">
 						<input
 							type="checkbox"
 							class="pjx-check"
@@ -137,47 +145,45 @@ const groups = computed(() => {
 							@change="toggleRow(it.name)"
 						/>
 						<span class="pjx-leadprio"><PriorityBars :priority="it.priority" /></span>
-					</span>
-					<span class="pjx-cell pjx-titlecell">
+					</ListCell>
+					<ListCell class="pjx-titlecell">
 						<StatusDot v-if="groupBy !== 'status'" :status="statusById[it.status]" />
 						<span class="pjx-id">{{ it.issue_id }}</span>
 						<span class="pjx-title">{{ it.title }}</span>
-						<span v-if="it.sub_total" class="pjx-meta"
-							><Icon name="list-checks" :size="13" />{{ it.sub_done }}/{{ it.sub_total }}</span
-						>
-						<span v-if="it.comment_count" class="pjx-meta"
-							><Icon name="message-square" :size="13" />{{ it.comment_count }}</span
-						>
+						<span v-if="it.sub_total" class="pjx-meta">
+							<Icon name="list-checks" :size="13" />{{ it.sub_done }}/{{ it.sub_total }}
+						</span>
+						<span v-if="it.comment_count" class="pjx-meta">
+							<Icon name="message-square" :size="13" />{{ it.comment_count }}
+						</span>
 						<LivePill :users="presence[it.name] || []" />
-					</span>
-					<span class="pjx-cell">
+					</ListCell>
+					<ListCell>
 						<LabelChip v-for="l in it.labels.slice(0, 2)" :key="l.label" :label="l" />
 						<span v-if="it.labels.length > 2" class="pjx-dim t-xs">+{{ it.labels.length - 2 }}</span>
-					</span>
-					<span class="pjx-cell r">
+					</ListCell>
+					<ListCell class="justify-end">
 						<span v-if="it.estimate" class="pjx-pts">{{ it.estimate }}</span>
 						<span v-else class="pjx-dim">–</span>
-					</span>
-					<span class="pjx-cell r">
-						<span v-if="it.due_date" class="pjx-due" :class="{ 'is-today': isToday(it.due_date) }">{{
-							dueLabel(it.due_date)
-						}}</span>
+					</ListCell>
+					<ListCell class="justify-end">
+						<span v-if="it.due_date" class="pjx-due" :class="{ 'is-today': isToday(it.due_date) }">{{ dueLabel(it.due_date) }}</span>
 						<span v-else class="pjx-dim">–</span>
-					</span>
-					<span class="pjx-cell r"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></span>
-					<span class="pjx-cell r">
+					</ListCell>
+					<ListCell class="justify-end"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></ListCell>
+					<ListCell class="justify-end">
 						<AvatarStack v-if="it.assignees.length" :users="it.assignees" :size="22" />
 						<span v-else class="pjx-noass">–</span>
-					</span>
-				</div>
-			</div>
+					</ListCell>
+				</ListRow>
+			</ListGroup>
+		</List>
 
-			<div v-if="!groups.length" class="pjx-soon" style="height: 320px">
-				<span class="pjx-soon__icon"><Icon name="inbox" :size="20" /></span>
-				<div class="t-base ink-7" style="font-weight: 500">No tasks yet</div>
-				<div class="t-sm ink-4">Create one above to get started.</div>
-			</div>
-		</template>
+		<div v-if="!loading && !groups.length" class="pjx-soon" style="height: 320px">
+			<span class="pjx-soon__icon"><Icon name="inbox" :size="20" /></span>
+			<div class="t-base ink-7" style="font-weight: 500">No tasks yet</div>
+			<div class="t-sm ink-4">Create one above to get started.</div>
+		</div>
 
 		<Transition name="pjx-bulkbar">
 			<div v-if="selectedCount" class="pjx-bulkbar">
@@ -206,30 +212,22 @@ const groups = computed(() => {
 </template>
 
 <style scoped>
+.pjx-tasklist { padding-top: 2px; }
+.pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; }
+.pjx-grouphead__name { font-weight: 500; color: var(--ink-gray-8); }
+.pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
+
 /* Leading cell: priority bars by default, checkbox on hover or when selected. */
-.pjx-lead {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-}
-.pjx-check {
-	cursor: pointer;
-	accent-color: var(--surface-gray-7);
-}
-.pjx-lead .pjx-check {
-	display: none;
-}
-.pjx-row:hover .pjx-lead .pjx-check,
-.pjx-lead .pjx-check.is-on {
-	display: inline-block;
-}
-.pjx-row:hover .pjx-lead .pjx-leadprio,
-.pjx-check.is-on + .pjx-leadprio {
-	display: none;
-}
-.pjx-row.is-selected {
-	background: var(--surface-gray-2);
-}
+.pjx-lead { position: relative; gap: 8px; }
+.pjx-check { cursor: pointer; accent-color: var(--surface-gray-7); }
+.pjx-lead .pjx-check { display: none; }
+:deep([data-slot='list-row']:hover) .pjx-lead .pjx-check,
+.pjx-lead .pjx-check.is-on { display: inline-block; }
+:deep([data-slot='list-row']:hover) .pjx-lead .pjx-leadprio,
+.pjx-check.is-on + .pjx-leadprio { display: none; }
+.pjx-selected { background: var(--surface-gray-2); }
+
+.pjx-titlecell { gap: 9px; }
 
 /* Floating bulk action bar */
 .pjx-bulkbar {
@@ -247,25 +245,10 @@ const groups = computed(() => {
 	border-radius: 10px;
 	box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16);
 }
-.pjx-bulkbar__count {
-	font-size: 12px;
-	font-weight: 600;
-	color: var(--ink-gray-7);
-	padding: 0 8px;
-}
-.pjx-bulkbar__sep {
-	width: 1px;
-	height: 18px;
-	background: var(--outline-gray-2);
-	margin: 0 2px;
-}
+.pjx-bulkbar__count { font-size: 12px; font-weight: 600; color: var(--ink-gray-7); padding: 0 8px; }
+.pjx-bulkbar__sep { width: 1px; height: 18px; background: var(--outline-gray-2); margin: 0 2px; }
 .pjx-bulkbar-enter-active,
-.pjx-bulkbar-leave-active {
-	transition: opacity 0.15s ease, transform 0.15s ease;
-}
+.pjx-bulkbar-leave-active { transition: opacity 0.15s ease, transform 0.15s ease; }
 .pjx-bulkbar-enter-from,
-.pjx-bulkbar-leave-to {
-	opacity: 0;
-	transform: translateY(8px);
-}
+.pjx-bulkbar-leave-to { opacity: 0; transform: translateY(8px); }
 </style>
