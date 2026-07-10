@@ -5,7 +5,7 @@ import { Dropdown } from 'frappe-ui'
 import { createResource } from 'frappe-ui'
 import Icon from './Icon.vue'
 import { store, reloadBootstrap } from '@/data/store'
-import { ui, openCreateProject, openCreateWorkspace, openCreate } from '@/data/ui'
+import { ui, openCreateProject, openCreateWorkspace, openCreate, toggleSidebar } from '@/data/ui'
 import { notify, notifyError, promptText } from '@/utils/feedback'
 
 const route = useRoute()
@@ -104,16 +104,21 @@ async function newTeam() {
 
 <template>
 	<aside class="pjx-side">
-		<Dropdown :options="workspaceOptions" placement="left-start">
-			<div class="pjx-side__ws">
-				<span class="pjx-side__wsmark">{{ (currentWorkspace?.workspace_name || 'P')[0] }}</span>
-				<div class="flex col" style="flex: 1; min-width: 0; line-height: 1.25">
-					<span class="t-sm fw-semibold truncate">{{ currentWorkspace?.workspace_name || 'Projex' }}</span>
-					<span class="t-2xs ink-5">{{ store.users.length }} members</span>
+		<div class="pjx-side__header">
+			<Dropdown class="pjx-side__wswrap" :options="workspaceOptions" placement="left-start">
+				<div class="pjx-side__ws">
+					<span class="pjx-side__wsmark">{{ (currentWorkspace?.workspace_name || 'P')[0] }}</span>
+					<div class="flex col" style="flex: 1; min-width: 0; line-height: 1.25">
+						<span class="t-sm fw-semibold truncate">{{ currentWorkspace?.workspace_name || 'Projex' }}</span>
+						<span class="t-2xs ink-5">{{ store.users.length }} members</span>
+					</div>
+					<Icon name="chevrons-up-down" :size="14" class="ink-5" />
 				</div>
-				<Icon name="chevrons-up-down" :size="14" class="ink-5" />
-			</div>
-		</Dropdown>
+			</Dropdown>
+			<button class="pjx-side__collapse" title="Collapse sidebar" @click="toggleSidebar">
+				<Icon name="panel-left" :size="16" />
+			</button>
+		</div>
 
 		<div class="pjx-side__group">
 			<div class="nav pjx-navrow" style="cursor: pointer" @click="openCreate(route.params.key || '')">

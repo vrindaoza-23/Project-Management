@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { Button, Dropdown } from 'frappe-ui'
 import Icon from './Icon.vue'
 import LivePill from './LivePill.vue'
-import { toggleSidebar } from '@/data/ui'
 
 const props = defineProps({
 	crumbs: { type: Array, default: () => [] }, // [{ label, icon }] — simple mode
@@ -31,9 +30,6 @@ const moreOptions = computed(() =>
 
 <template>
 	<header class="pjx-topbar" :class="{ 'pjx-topbar--tiered': title }">
-		<button class="pjx-sidetoggle" title="Toggle sidebar" @click="toggleSidebar">
-			<Icon name="panel-left" :size="16" />
-		</button>
 		<!-- simple mode: breadcrumbs + optional flat tab strip -->
 		<template v-if="!title">
 			<div class="pjx-crumbs">

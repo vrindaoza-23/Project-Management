@@ -35,7 +35,11 @@ body { background: var(--surface-white); }
 
 /* ─────────────────────── Sidebar ─────────────────────── */
 .pjx-side { background: var(--surface-white); border-right: 1px solid var(--outline-gray-1); display: flex; flex-direction: column; overflow-x: hidden; overflow-y: auto; min-width: 0; }
-.pjx-side__ws { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 10px; flex: none; border-bottom: 1px solid var(--outline-gray-1); cursor: pointer; }
+.pjx-side__header { display: flex; align-items: stretch; border-bottom: 1px solid var(--outline-gray-1); }
+.pjx-side__wswrap { flex: 1; min-width: 0; }
+.pjx-side__collapse { flex: none; width: 40px; display: grid; place-items: center; border: 0; background: transparent; cursor: pointer; color: var(--ink-gray-5); }
+.pjx-side__collapse:hover { background: var(--surface-gray-2); color: var(--ink-gray-8); }
+.pjx-side__ws { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 10px; flex: none; cursor: pointer; }
 .pjx-side__ws:hover { background: var(--surface-gray-2); }
 .pjx-side__wsmark { width: 26px; height: 26px; border-radius: 7px; flex: none; background: var(--surface-gray-7); color: var(--surface-white); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
 .pjx-side__group { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 2px; }
@@ -52,8 +56,10 @@ body { background: var(--surface-white); }
 
 /* ─────────────────────── Topbar ─────────────────────── */
 .pjx-topbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); }
-.pjx-sidetoggle { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; margin-left: -4px; border: 0; background: transparent; border-radius: 8px; cursor: pointer; color: var(--ink-gray-6); }
-.pjx-sidetoggle:hover { background: var(--surface-gray-2); color: var(--ink-gray-9); }
+/* When the sidebar is collapsed, leave room at the left for the floating reopen button. */
+.pjx-app.is-sidebar-collapsed .pjx-topbar { padding-left: 52px; }
+.pjx-reopen { position: fixed; top: 9px; left: 10px; z-index: var(--z-panel); width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--outline-gray-2); background: var(--surface-white); border-radius: 8px; cursor: pointer; color: var(--ink-gray-6); box-shadow: var(--shadow-sm); }
+.pjx-reopen:hover { background: var(--surface-gray-2); color: var(--ink-gray-9); }
 .pjx-crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; flex-shrink: 0; max-width: 30%; overflow: hidden; }
 .pjx-crumb { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; min-width: 0; }
 .pjx-crumb > span { overflow: hidden; text-overflow: ellipsis; }
