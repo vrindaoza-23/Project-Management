@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { createResource, Button, Dropdown, FormControl, DatePicker } from 'frappe-ui'
+import { createResource, Button, Dropdown, FormControl, DatePicker, TextEditor } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
 import { relativeTime } from '@/utils/format'
 import { notify, notifyError, confirm } from '@/utils/feedback'
@@ -10,13 +10,18 @@ const props = defineProps({ projectKey: { type: String, required: true } })
 const DOC_TYPES = ['PRD', 'BRD', 'Standup MOM', 'Change Request', 'Note']
 const TYPE_ICON = { PRD: 'file-text', BRD: 'briefcase', 'Standup MOM': 'users', 'Change Request': 'git-pull-request', Note: 'sticky-note' }
 
+// Rich-text (HTML) starter content for the editor.
 const TEMPLATES = {
-	PRD: `# Overview\n(What are we building and why?)\n\n# Goals\n- \n\n# Non-goals\n- \n\n# Requirements\n1. \n\n# Success metrics\n- `,
-	BRD: `# Business need\n\n# Scope\n\n# Stakeholders\n- \n\n# Requirements\n1. \n\n# Risks & assumptions\n- `,
-	'Standup MOM': `Date: \nAttendees: \n\n## Yesterday\n- \n\n## Today\n- \n\n## Blockers\n- `,
-	'Change Request': `# Change\n(What is changing?)\n\n# Reason\n\n# Impact\n\n# Approval\n- Requested by: \n- Approved by: `,
+	PRD: `<h2>Overview</h2><p>What are we building and why?</p><h2>Goals</h2><ul><li></li></ul><h2>Non-goals</h2><ul><li></li></ul><h2>Requirements</h2><ol><li></li></ol><h2>Success metrics</h2><ul><li></li></ul>`,
+	BRD: `<h2>Business need</h2><p></p><h2>Scope</h2><p></p><h2>Stakeholders</h2><ul><li></li></ul><h2>Requirements</h2><ol><li></li></ol><h2>Risks &amp; assumptions</h2><ul><li></li></ul>`,
+	'Standup MOM': `<p><strong>Date:</strong> </p><p><strong>Attendees:</strong> </p><h3>Yesterday</h3><ul><li></li></ul><h3>Today</h3><ul><li></li></ul><h3>Blockers</h3><ul><li></li></ul>`,
+	'Change Request': `<h2>Change</h2><p>What is changing?</p><h2>Reason</h2><p></p><h2>Impact</h2><p></p><h2>Approval</h2><ul><li>Requested by: </li><li>Approved by: </li></ul>`,
 	Note: '',
 }
+
+// Old docs were stored as plain text; new docs are HTML. Render HTML as-is,
+// but keep whitespace for legacy plain-text content so it doesn't collapse.
+const looksLikeHtml = (s) => typeof s === 'string' && /<[a-z][\s\S]*>/i.test(s)
 
 const list = createResource({
 	url: 'projex.api.get_docs',
@@ -156,11 +161,13 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 						<DatePicker v-model="draft.doc_date" placeholder="Date" />
 					</div>
 				</div>
-				<textarea
-					v-model="draft.content"
+				<TextEditor
 					class="pjx-docs__editor"
+					:content="draft.content"
+					:fixed-menu="true"
 					placeholder="Write your document…"
-					data-gramm="false"
+					editor-class="pjx-docs__prose"
+					@change="(html) => (draft.content = html)"
 				/>
 				<div class="flex g-2" style="margin-top: 10px">
 					<Button variant="solid" theme="blue" :loading="creator.loading || updater.loading" @click="save">Save</Button>
@@ -186,7 +193,14 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 						</Button>
 					</div>
 				</div>
-				<div class="pjx-docs__content">{{ current.content || 'This document is empty. Click Edit to add content.' }}</div>
+				<div
+					v-if="looksLikeHtml(current.content)"
+					class="pjx-docs__content pjx-docs__prose"
+					v-html="current.content"
+				/>
+				<div v-else class="pjx-docs__content" style="white-space: pre-wrap">
+					{{ current.content || 'This document is empty. Click Edit to add content.' }}
+				</div>
 			</template>
 
 			<div v-else class="pjx-docs__empty">
@@ -214,11 +228,22 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 .pjx-docs__detail { padding: 20px 24px; overflow-y: auto; min-height: 0; }
 .pjx-docs__title-input { width: 100%; font-size: 22px; font-weight: 600; border: 0; outline: 0; color: var(--ink-gray-9); background: transparent; margin-bottom: 10px; }
 .pjx-docs__meta { display: flex; gap: 10px; margin-bottom: 12px; }
-.pjx-docs__editor { width: 100%; min-height: 360px; border: 1px solid var(--outline-gray-2); border-radius: 10px; padding: 14px 16px; font-size: 14px; line-height: 1.6; color: var(--ink-gray-8); font-family: var(--font-sans); resize: vertical; white-space: pre-wrap; }
-.pjx-docs__editor:focus { outline: none; border-color: var(--outline-gray-3); }
+.pjx-docs__editor { border: 1px solid var(--outline-gray-2); border-radius: 10px; overflow: hidden; }
+.pjx-docs__editor :deep(.ProseMirror) { min-height: 320px; padding: 14px 16px; }
+.pjx-docs__editor :deep(.ProseMirror:focus) { outline: none; }
 .pjx-docs__dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .pjx-docs__h2 { font-size: 22px; font-weight: 600; color: var(--ink-gray-9); }
 .pjx-docs__sub { font-size: 12px; color: var(--ink-gray-5); margin-top: 4px; }
-.pjx-docs__content { font-size: 14px; line-height: 1.7; color: var(--ink-gray-8); white-space: pre-wrap; }
+.pjx-docs__content { font-size: 14px; line-height: 1.7; color: var(--ink-gray-8); }
+/* Prose typography for rendered rich-text (both editor and read view). */
+.pjx-docs__prose :deep(h1), .pjx-docs__prose h1 { font-size: 20px; font-weight: 600; color: var(--ink-gray-9); margin: 16px 0 8px; }
+.pjx-docs__prose :deep(h2), .pjx-docs__prose h2 { font-size: 17px; font-weight: 600; color: var(--ink-gray-9); margin: 14px 0 6px; }
+.pjx-docs__prose :deep(h3), .pjx-docs__prose h3 { font-size: 14px; font-weight: 600; color: var(--ink-gray-9); margin: 12px 0 4px; }
+.pjx-docs__prose :deep(p), .pjx-docs__prose p { margin: 6px 0; }
+.pjx-docs__prose :deep(ul), .pjx-docs__prose ul { list-style: disc; padding-left: 22px; margin: 6px 0; }
+.pjx-docs__prose :deep(ol), .pjx-docs__prose ol { list-style: decimal; padding-left: 22px; margin: 6px 0; }
+.pjx-docs__prose :deep(a), .pjx-docs__prose a { color: var(--ink-blue-2); text-decoration: underline; }
+.pjx-docs__prose :deep(blockquote), .pjx-docs__prose blockquote { border-left: 3px solid var(--outline-gray-3); padding-left: 12px; color: var(--ink-gray-6); margin: 8px 0; }
+.pjx-docs__prose :deep(code), .pjx-docs__prose code { font-family: var(--font-mono); background: var(--surface-gray-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
 .pjx-docs__empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
 </style>
