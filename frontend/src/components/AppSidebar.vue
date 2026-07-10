@@ -1,17 +1,23 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Dropdown } from 'frappe-ui'
-import { createResource } from 'frappe-ui'
+import { Dropdown, Sidebar, SidebarItem, SidebarLabel, SidebarCollapseToggle, createResource } from 'frappe-ui'
 import Icon from './Icon.vue'
 import { store, reloadBootstrap } from '@/data/store'
-import { ui, openCreateProject, openCreateWorkspace, openCreate, toggleSidebar } from '@/data/ui'
+import { ui, openCreateProject, openCreateWorkspace, openCreate } from '@/data/ui'
 import { notify, notifyError, promptText } from '@/utils/feedback'
 
 const route = useRoute()
-const projOpen = ref(true)
-const favOpen = ref(true)
 const favToggler = createResource({ url: 'projex.api.toggle_favorite' })
+
+// Collapse state (persisted) drives frappe-ui's <Sidebar v-model:collapsed>.
+const collapsed = computed({
+	get: () => ui.sidebarCollapsed,
+	set: (v) => {
+		ui.sidebarCollapsed = v
+		localStorage.setItem('pjx:sidebar-collapsed', v ? '1' : '0')
+	},
+})
 
 function isActive(path) {
 	return route.path === path
@@ -103,94 +109,82 @@ async function newTeam() {
 </script>
 
 <template>
-	<aside class="pjx-side">
-		<div class="pjx-side__header">
-			<Dropdown class="pjx-side__wswrap" :options="workspaceOptions" placement="left-start">
-				<div class="pjx-side__ws">
+	<Sidebar v-model:collapsed="collapsed" width="232px" collapsed-width="56px" class="pjx-side">
+		<!-- Workspace switcher -->
+		<div class="pjx-side__head">
+			<Dropdown :options="workspaceOptions" placement="right-start">
+				<button class="pjx-ws" :class="{ 'is-collapsed': collapsed }">
 					<span class="pjx-side__wsmark">{{ (currentWorkspace?.workspace_name || 'P')[0] }}</span>
-					<div class="flex col" style="flex: 1; min-width: 0; line-height: 1.25">
-						<span class="t-sm fw-semibold truncate">{{ currentWorkspace?.workspace_name || 'Projex' }}</span>
-						<span class="t-2xs ink-5">{{ store.users.length }} members</span>
-					</div>
-					<Icon name="chevrons-up-down" :size="14" class="ink-5" />
-				</div>
+					<template v-if="!collapsed">
+						<span class="pjx-ws__meta">
+							<span class="pjx-ws__name truncate">{{ currentWorkspace?.workspace_name || 'Projex' }}</span>
+							<span class="pjx-ws__sub">{{ store.users.length }} members</span>
+						</span>
+						<Icon name="chevrons-up-down" :size="14" class="ink-5" />
+					</template>
+				</button>
 			</Dropdown>
-			<button class="pjx-side__collapse" title="Collapse sidebar" @click="toggleSidebar">
-				<Icon name="panel-left" :size="16" />
-			</button>
 		</div>
 
-		<div class="pjx-side__group">
-			<div class="nav pjx-navrow" style="cursor: pointer" @click="openCreate(route.params.key || '')">
-				<Icon name="square-pen" :size="16" />
-				<span class="truncate">New task</span>
-				<span class="kbd" style="margin-left: auto">c</span>
-			</div>
-			<router-link to="/inbox" class="nav pjx-navrow" :class="{ active: isActive('/inbox') }">
-				<Icon name="inbox" :size="16" />
-				<span class="truncate">Inbox</span>
-				<span v-if="store.counts.inbox" class="pjx-navbadge">{{ store.counts.inbox }}</span>
-			</router-link>
-			<router-link to="/my-tasks" class="nav pjx-navrow" :class="{ active: isActive('/my-tasks') }">
-				<Icon name="circle-check-big" :size="16" />
-				<span class="truncate">My tasks</span>
-			</router-link>
-			<router-link v-if="store.canManageUsers" to="/users" class="nav pjx-navrow" :class="{ active: isActive('/users') }">
-				<Icon name="users" :size="16" />
-				<span class="truncate">Users</span>
-			</router-link>
-		</div>
+		<!-- Scrollable nav -->
+		<div class="pjx-side__body">
+			<SidebarItem label="New task" @click="openCreate(route.params.key || '')">
+				<template #prefix><Icon name="square-pen" :size="16" /></template>
+				<template #suffix><span class="kbd">c</span></template>
+			</SidebarItem>
+			<SidebarItem label="Inbox" to="/inbox" :active="isActive('/inbox')">
+				<template #prefix><Icon name="inbox" :size="16" /></template>
+				<template #suffix>
+					<span v-if="store.counts.inbox" class="pjx-navbadge">{{ store.counts.inbox }}</span>
+				</template>
+			</SidebarItem>
+			<SidebarItem label="My tasks" to="/my-tasks" :active="isActive('/my-tasks')">
+				<template #prefix><Icon name="circle-check-big" :size="16" /></template>
+			</SidebarItem>
+			<SidebarItem v-if="store.canManageUsers" label="Users" to="/users" :active="isActive('/users')">
+				<template #prefix><Icon name="users" :size="16" /></template>
+			</SidebarItem>
 
-		<div v-if="favoriteProjects.length" class="pjx-side__group">
-			<div class="pjx-side__head" @click="favOpen = !favOpen">
-				<span>Favorites</span>
-				<Icon :name="favOpen ? 'chevron-down' : 'chevron-right'" :size="13" />
-			</div>
-			<template v-if="favOpen">
-				<router-link
+			<template v-if="favoriteProjects.length">
+				<SidebarLabel divider>Favorites</SidebarLabel>
+				<SidebarItem
 					v-for="p in favoriteProjects"
 					:key="p.name"
+					:label="p.project_name"
 					:to="`/projects/${p.key}`"
-					class="nav pjx-navrow"
-					:class="{ active: route.params.key === p.key }"
-					style="padding-left: 22px"
+					:active="route.params.key === p.key"
 				>
-					<span class="pjx-projicon"><Icon :name="p.icon || 'folder'" :size="12" /></span>
-					<span class="truncate">{{ p.project_name }}</span>
-				</router-link>
+					<template #prefix><Icon :name="p.icon || 'folder'" :size="15" /></template>
+				</SidebarItem>
 			</template>
-		</div>
 
-		<div class="pjx-side__group">
-			<div class="pjx-side__head" @click="projOpen = !projOpen">
-				<span>Projects</span>
-				<button class="pjx-side__add" title="New project" @click.stop="openCreateProject">
+			<div class="pjx-side__labelrow">
+				<SidebarLabel divider>Projects</SidebarLabel>
+				<button v-if="!collapsed" class="pjx-side__add" title="New project" @click="openCreateProject">
 					<Icon name="plus" :size="14" />
 				</button>
 			</div>
-			<template v-if="projOpen">
-				<template v-for="g in teamGroups" :key="g.key">
-					<div
-						v-if="g.team || teamGroups.length > 1"
-						class="pjx-side__teamhead"
-						@click="toggleTeam(g.key)"
+			<template v-for="g in teamGroups" :key="g.key">
+				<SidebarItem
+					v-if="!collapsed && (g.team || teamGroups.length > 1)"
+					:label="g.label"
+					@click="toggleTeam(g.key)"
+				>
+					<template #prefix>
+						<Icon :name="collapsedTeams[g.key] ? 'chevron-right' : 'chevron-down'" :size="14" />
+					</template>
+					<template #suffix><span class="pjx-navbadge">{{ g.projects.length }}</span></template>
+				</SidebarItem>
+				<template v-if="collapsed || !collapsedTeams[g.key]">
+					<SidebarItem
+						v-for="p in g.projects"
+						:key="p.name"
+						:label="p.project_name"
+						:to="`/projects/${p.key}`"
+						:active="route.params.key === p.key"
 					>
-						<Icon :name="collapsedTeams[g.key] ? 'chevron-right' : 'chevron-down'" :size="11" />
-						<Icon :name="g.icon" :size="12" />
-						<span class="truncate">{{ g.label }}</span>
-						<span class="pjx-side__teamcount">{{ g.projects.length }}</span>
-					</div>
-					<template v-if="!collapsedTeams[g.key]">
-						<router-link
-							v-for="p in g.projects"
-							:key="p.name"
-							:to="`/projects/${p.key}`"
-							class="nav pjx-navrow pjx-projrow"
-							:class="{ active: route.params.key === p.key }"
-							:style="{ paddingLeft: g.team || teamGroups.length > 1 ? '34px' : '22px' }"
-						>
-							<span class="pjx-projicon"><Icon :name="p.icon || 'folder'" :size="12" /></span>
-							<span class="truncate">{{ p.project_name }}</span>
+						<template #prefix><Icon :name="p.icon || 'folder'" :size="15" /></template>
+						<template #suffix>
 							<button
 								class="pjx-star"
 								:class="{ on: isFav(p.name) }"
@@ -199,95 +193,162 @@ async function newTeam() {
 							>
 								<Icon name="star" :size="13" />
 							</button>
-						</router-link>
-					</template>
+						</template>
+					</SidebarItem>
 				</template>
-				<div v-if="!visibleProjects.length" class="nav" style="padding-left: 22px; cursor: default" @click="openCreateProject">
-					<Icon name="plus" :size="14" class="ink-5" />
-					<span class="t-sm ink-5">Add your first project</span>
-				</div>
 			</template>
+			<SidebarItem
+				v-if="!visibleProjects.length && !collapsed"
+				label="Add your first project"
+				@click="openCreateProject"
+			>
+				<template #prefix><Icon name="plus" :size="15" /></template>
+			</SidebarItem>
+
+			<SidebarLabel divider>&nbsp;</SidebarLabel>
+			<SidebarItem label="Roadmap" to="/roadmap" :active="isActive('/roadmap')">
+				<template #prefix><Icon name="map" :size="16" /></template>
+			</SidebarItem>
 		</div>
 
-		<div class="pjx-side__group">
-			<router-link to="/roadmap" class="nav pjx-navrow" :class="{ active: isActive('/roadmap') }">
-				<Icon name="map" :size="16" />
-				<span class="truncate">Roadmap</span>
-			</router-link>
-		</div>
-
+		<!-- Footer: collapse toggle + current user -->
 		<div class="pjx-side__foot">
+			<SidebarCollapseToggle />
 			<div class="pjx-side__me">
 				<Icon name="user" :size="18" class="ink-6" />
-				<div class="flex col" style="flex: 1; min-width: 0; line-height: 1.2">
+				<div v-if="!collapsed" class="flex col" style="flex: 1; min-width: 0; line-height: 1.2">
 					<span class="t-sm fw-medium truncate">{{ store.user }}</span>
 					<span class="t-2xs ink-5 flex items-center g-1"><span class="pjx-livedot" /> Active</span>
 				</div>
 			</div>
 		</div>
-	</aside>
+	</Sidebar>
 </template>
 
 <style scoped>
-.pjx-side__teamhead {
+.pjx-side__head {
+	padding: 8px;
+}
+.pjx-ws {
 	display: flex;
 	align-items: center;
-	gap: 6px;
-	padding: 4px 10px 4px 22px;
-	margin-top: 2px;
-	cursor: pointer;
-	color: var(--ink-gray-6);
-	font-size: 11px;
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.03em;
-	user-select: none;
-}
-.pjx-side__teamhead:hover {
-	color: var(--ink-gray-8);
-}
-.pjx-side__teamcount {
-	margin-left: auto;
-	font-weight: 500;
-	color: var(--ink-gray-4);
-}
-.pjx-side__add {
+	gap: 10px;
+	width: 100%;
+	height: 40px;
+	padding: 0 8px;
 	border: 0;
 	background: transparent;
+	border-radius: 8px;
 	cursor: pointer;
+}
+.pjx-ws:hover {
+	background: var(--surface-gray-2);
+}
+.pjx-ws.is-collapsed {
+	justify-content: center;
+	padding: 0;
+}
+.pjx-ws__meta {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	line-height: 1.25;
+	text-align: left;
+}
+.pjx-ws__name {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--ink-gray-9);
+}
+.pjx-ws__sub {
+	font-size: 11px;
 	color: var(--ink-gray-5);
-	border-radius: 5px;
-	width: 20px;
-	height: 20px;
+}
+.pjx-side__body {
+	flex: 1;
+	min-height: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
+	padding: 2px 8px 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+.pjx-side__labelrow {
+	display: flex;
+	align-items: center;
+}
+.pjx-side__labelrow > :first-child {
+	flex: 1;
+}
+.pjx-side__add {
+	flex: none;
+	width: 22px;
+	height: 22px;
 	display: grid;
 	place-items: center;
+	border: 0;
+	background: transparent;
+	color: var(--ink-gray-5);
+	border-radius: 6px;
+	cursor: pointer;
 }
 .pjx-side__add:hover {
-	background: var(--surface-gray-3);
+	background: var(--surface-gray-2);
 	color: var(--ink-gray-8);
 }
-.pjx-projrow .pjx-star {
-	margin-left: auto;
+.pjx-navbadge {
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	display: inline-grid;
+	place-items: center;
+	border-radius: 9999px;
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	background: var(--surface-gray-3);
+	color: var(--ink-gray-6);
+}
+.pjx-star {
 	border: 0;
 	background: transparent;
 	cursor: pointer;
 	color: var(--ink-gray-4);
 	opacity: 0;
 	border-radius: 4px;
-	width: 20px;
-	height: 20px;
+	width: 22px;
+	height: 22px;
 	display: grid;
 	place-items: center;
 }
-.pjx-projrow:hover .pjx-star {
+:deep([data-slot='sidebar-item']:hover) .pjx-star {
 	opacity: 1;
 }
-.pjx-projrow .pjx-star.on {
+.pjx-star.on {
 	opacity: 1;
 	color: var(--amber-500);
+}
+.pjx-star.on :deep(svg) {
 	fill: var(--amber-500);
 }
-.pjx-projrow .pjx-star.on :deep(svg) {
-	fill: var(--amber-500);
+.pjx-side__foot {
+	margin-top: auto;
+	border-top: 1px solid var(--outline-gray-1);
+	padding: 6px 8px 8px;
+}
+.pjx-side__me {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 8px;
+	border-radius: 8px;
+}
+.pjx-livedot {
+	width: 6px;
+	height: 6px;
+	border-radius: 9999px;
+	background: var(--green-500);
+	display: inline-block;
 }
 </style>

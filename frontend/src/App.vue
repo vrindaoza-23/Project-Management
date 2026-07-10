@@ -10,10 +10,9 @@ import CreateProjectDialog from '@/components/CreateProjectDialog.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
 import TweaksPanel from '@/components/TweaksPanel.vue'
 import ConfirmHost from '@/components/ConfirmHost.vue'
-import Icon from '@/components/Icon.vue'
 import { notifyError } from '@/utils/feedback'
 import { initStore, reloadBootstrap } from '@/data/store'
-import { ui, togglePalette, closePalette, closeDrawer, bumpRefresh, openCreate, closeCreate, toggleSidebar } from '@/data/ui'
+import { ui, togglePalette, closePalette, closeDrawer, bumpRefresh, openCreate, closeCreate } from '@/data/ui'
 import { useTweaks } from '@/composables/useTweaks'
 import { useKeyboard } from '@/composables/useKeyboard'
 
@@ -54,13 +53,10 @@ useKeyboard({
 <template>
 	<FrappeUIProvider>
 		<div class="fu-app">
-			<div class="pjx-app" :class="{ 'is-sidebar-collapsed': ui.sidebarCollapsed }">
+			<div class="pjx-app">
 				<AppSidebar />
 				<router-view />
 			</div>
-			<button v-if="ui.sidebarCollapsed" class="pjx-reopen" title="Open sidebar" @click="toggleSidebar">
-				<Icon name="panel-left" :size="16" />
-			</button>
 			<CommandPalette :open="ui.paletteOpen" @close="closePalette" @new="openCreate(route.params.key || '')" />
 			<TaskDrawer :name="ui.openIssue" @close="closeDrawer" @changed="bumpRefresh" />
 			<CreateIssueDialog
