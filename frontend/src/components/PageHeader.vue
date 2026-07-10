@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { Button, Dropdown } from 'frappe-ui'
+import { Button, Dropdown, TabButtons } from 'frappe-ui'
 import Icon from './Icon.vue'
 import LivePill from './LivePill.vue'
 
@@ -26,6 +26,13 @@ const emit = defineEmits(['search', 'new', 'tab', 'settings', 'surface', 'view']
 const moreOptions = computed(() =>
 	props.moreItems.map((it) => ({ label: it.label, icon: it.icon, onClick: () => emit('surface', it.id) })),
 )
+const surfaceOptions = computed(() =>
+	props.surfaces.map((s) => ({
+		label: s.count != null ? `${s.label} · ${s.count}` : s.label,
+		value: s.id,
+	})),
+)
+const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, value: v.id })))
 </script>
 
 <template>
@@ -95,37 +102,27 @@ const moreOptions = computed(() =>
 
 	<!-- tier 2: surfaces + view switcher (tiered mode only) -->
 	<div v-if="title" class="pjx-subbar">
-		<nav class="pjx-surfaces">
-			<button
-				v-for="s in surfaces"
-				:key="s.id"
-				class="pjx-surface"
-				:class="{ 'is-active': activeSurface === s.id }"
-				@click="emit('surface', s.id)"
-			>
-				{{ s.label }}
-				<span v-if="s.count != null" class="pjx-surface__cnt">{{ s.count }}</span>
-			</button>
+		<div class="pjx-subbar__left">
+			<TabButtons
+				type="underline"
+				:model-value="activeSurface"
+				:options="surfaceOptions"
+				@update:model-value="(v) => emit('surface', v)"
+			/>
 			<Dropdown v-if="moreItems.length" :options="moreOptions" placement="left">
-				<button class="pjx-surface pjx-surface--more" :class="{ 'is-active': moreActive }">
-					<Icon name="ellipsis" :size="16" />
+				<Button variant="ghost" theme="gray" :class="{ 'text-ink-gray-9': moreActive }">
 					More
-				</button>
+					<template #suffix><Icon name="chevron-down" :size="14" /></template>
+				</Button>
 			</Dropdown>
-		</nav>
-
-		<div v-if="views.length" class="pjx-vswitch">
-			<button
-				v-for="v in views"
-				:key="v.id"
-				class="pjx-vswitch__btn"
-				:class="{ 'is-active': activeView === v.id }"
-				:title="v.label"
-				@click="emit('view', v.id)"
-			>
-				<Icon :name="v.icon" :size="15" />
-				<span class="pjx-vswitch__label">{{ v.label }}</span>
-			</button>
 		</div>
+
+		<TabButtons
+			v-if="views.length"
+			type="subtle"
+			:model-value="activeView"
+			:options="viewOptions"
+			@update:model-value="(v) => emit('view', v)"
+		/>
 	</div>
 </template>
