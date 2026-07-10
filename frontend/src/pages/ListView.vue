@@ -31,7 +31,7 @@ const COLUMNS = ['18px', 'minmax(0,1fr)', '168px', '48px', '80px', '88px', '108p
 const listStyle = {
 	'--list-gap': '12px',
 	'--list-row-padding-x': '16px',
-	'--list-row-height': 'var(--row-h)',
+	'--list-row-height': '46px',
 }
 
 // The open task highlights via the List's active row.
@@ -103,8 +103,6 @@ const groups = computed(() => {
 
 <template>
 	<div class="pjx-list">
-		<QuickAdd :project-key="projectKey" @created="emit('created')" />
-
 		<List :columns="COLUMNS" v-model:active="active" divider="full" :style="listStyle" class="pjx-tasklist">
 			<ListHeader>
 				<ListHeaderCell>
@@ -179,6 +177,8 @@ const groups = computed(() => {
 			</ListGroup>
 		</List>
 
+		<QuickAdd v-if="groups.length" :project-key="projectKey" @created="emit('created')" />
+
 		<div v-if="!loading && !groups.length" class="pjx-soon" style="height: 320px">
 			<span class="pjx-soon__icon"><Icon name="inbox" :size="20" /></span>
 			<div class="t-base ink-7" style="font-weight: 500">No tasks yet</div>
@@ -212,9 +212,22 @@ const groups = computed(() => {
 </template>
 
 <style scoped>
-.pjx-tasklist { padding-top: 2px; }
+/* Helpdesk-style calm rhythm: a subtle header band + generous group spacing. */
+.pjx-tasklist :deep([data-slot='list-header']) {
+	height: 40px;
+	background: var(--surface-gray-1);
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--ink-gray-6);
+	margin-bottom: 2px;
+}
+.pjx-tasklist :deep([data-slot='list-group-header']) {
+	height: 44px;
+	font-size: 13px;
+}
 .pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; }
-.pjx-grouphead__name { font-weight: 500; color: var(--ink-gray-8); }
+.pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
 .pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
 
 /* Leading cell: priority bars by default, checkbox on hover or when selected. */

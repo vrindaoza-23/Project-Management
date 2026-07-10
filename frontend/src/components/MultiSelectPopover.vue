@@ -149,8 +149,10 @@ onUnmounted(() => {
 }
 .pjx-msel--bare .pjx-msel__trigger {
 	background: transparent;
-	padding: 2px 6px;
-	min-height: 24px;
+	padding: 0 8px;
+	min-height: 28px;
+	height: 28px;
+	border-radius: 8px;
 }
 .pjx-msel--bare .pjx-msel__trigger:hover {
 	background: var(--surface-gray-2);

@@ -72,26 +72,28 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 	<div class="pjx-list__bar">
 		<div class="pjx-chips">
 			<MultiSelectPopover
+				bare
 				:options="statusOptions"
 				:model-value="state.statusFilter"
 				@change="(v) => set({ statusFilter: v })"
 			>
 				<template #trigger>
-					<span class="pjx-chip">
-						<span class="pjx-chip__k">Status</span>
-						<span class="pjx-chip__v">{{ state.statusFilter.length ? state.statusFilter.length + ' selected' : 'Any' }}</span>
+					<span class="pjx-fbtn">
+						<span class="pjx-fbtn__k">Status</span>
+						<span class="pjx-fbtn__v">{{ state.statusFilter.length ? state.statusFilter.length + ' selected' : 'Any' }}</span>
 					</span>
 				</template>
 			</MultiSelectPopover>
 			<MultiSelectPopover
+				bare
 				:options="assigneeOptions"
 				:model-value="state.assignees || []"
 				@change="(v) => set({ assignees: v })"
 			>
 				<template #trigger>
-					<span class="pjx-chip">
-						<span class="pjx-chip__k">Assignee</span>
-						<span class="pjx-chip__v">{{ (state.assignees || []).length ? (state.assignees.length + ' selected') : 'Anyone' }}</span>
+					<span class="pjx-fbtn">
+						<span class="pjx-fbtn__k">Assignee</span>
+						<span class="pjx-fbtn__v">{{ (state.assignees || []).length ? (state.assignees.length + ' selected') : 'Anyone' }}</span>
 					</span>
 				</template>
 			</MultiSelectPopover>
@@ -109,13 +111,13 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 				:options="GROUPS.map((g) => ({ label: g.label, onClick: () => set({ groupBy: g.id }) }))"
 			>
 				<Button variant="ghost" theme="gray">
-					<span class="t-xs ink-5">Group:</span>&nbsp;{{ groupLabel }}
+					<span class="ink-5">Group</span>&nbsp;{{ groupLabel }}
 					<template #suffix><Icon name="chevron-down" :size="13" /></template>
 				</Button>
 			</Dropdown>
 			<Dropdown :options="SORTS.map((s) => ({ label: s.label, onClick: () => set({ sortBy: s.id }) }))">
 				<Button variant="ghost" theme="gray">
-					<span class="t-xs ink-5">Sort:</span>&nbsp;{{ sortLabel }}
+					<span class="ink-5">Sort</span>&nbsp;{{ sortLabel }}
 					<template #suffix><Icon name="chevron-down" :size="13" /></template>
 				</Button>
 			</Dropdown>
@@ -126,3 +128,20 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 		</div>
 	</div>
 </template>
+
+<style scoped>
+/* Filter triggers styled as quiet ghost controls to match the right side. */
+.pjx-fbtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 14px;
+	white-space: nowrap;
+}
+.pjx-fbtn__k {
+	color: var(--ink-gray-5);
+}
+.pjx-fbtn__v {
+	color: var(--ink-gray-8);
+}
+</style>

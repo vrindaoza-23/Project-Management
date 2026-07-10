@@ -105,8 +105,9 @@ body { background: var(--surface-white); }
 .pjx-alert__actions { display: flex; gap: 6px; flex: none; }
 
 /* ─────────────────────── Quick add ─────────────────────── */
-.pjx-quickadd { display: flex; align-items: center; gap: 10px; margin: 12px 16px 4px; padding: 0 10px 0 12px; height: 38px; border: 1px solid var(--outline-gray-2); border-radius: 8px; background: var(--surface-white); }
-.pjx-quickadd:focus-within { border-color: var(--outline-gray-3); box-shadow:0 0 0 2px var(--outline-gray-3); }
+/* Slim, borderless add-row integrated into the list rhythm (no heavy box). */
+.pjx-quickadd { display: flex; align-items: center; gap: 8px; margin: 0; padding: 0 16px; height: 40px; border: 0; border-radius: 0; background: transparent; color: var(--ink-gray-5); }
+.pjx-quickadd:hover, .pjx-quickadd:focus-within { background: var(--surface-gray-1); }
 .pjx-quickadd__input { flex: 1; appearance: none; border: 0; outline: 0; background: transparent; font-family: var(--font-sans); font-size: 14px; color: var(--ink-gray-9); }
 .pjx-quickadd__input::placeholder { color: var(--ink-gray-4); }
 .pjx-tok { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 9999px; font-size: 12px; white-space: nowrap; background: var(--surface-gray-2); color: var(--ink-gray-6); }
