@@ -53,7 +53,7 @@ useKeyboard({
 <template>
 	<FrappeUIProvider>
 		<div class="fu-app">
-			<div class="pjx-app">
+			<div class="pjx-app" :class="{ 'is-sidebar-collapsed': ui.sidebarCollapsed }">
 				<AppSidebar />
 				<router-view />
 			</div>

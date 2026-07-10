@@ -12,7 +12,13 @@ export const ui = reactive({
 	createWorkspaceOpen: false, // create-workspace dialog
 	settingsProject: null, // project key when settings dialog is open
 	currentWorkspace: null, // selected workspace filter (null = all)
+	sidebarCollapsed: localStorage.getItem('pjx:sidebar-collapsed') === '1',
 })
+
+export function toggleSidebar() {
+	ui.sidebarCollapsed = !ui.sidebarCollapsed
+	localStorage.setItem('pjx:sidebar-collapsed', ui.sidebarCollapsed ? '1' : '0')
+}
 
 export function bumpRefresh() {
 	ui.refreshTick++
