@@ -78,8 +78,14 @@ body { background: var(--surface-white); }
 .pjx-anchor__sep { color: var(--ink-gray-4); }
 
 .pjx-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); }
-.pjx-subbar__left { display: flex; align-items: center; gap: 8px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.pjx-subbar__left { display: flex; align-items: center; gap: 24px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
 .pjx-subbar__left::-webkit-scrollbar { display: none; }
+/* Surface tabs (underline TabButtons): drop the full-width grey rail — the active
+   tab keeps its own dark indicator. Apple-clean: no baseline noise. */
+.pjx-subbar__left > [role='radiogroup'] > div { border-bottom: 0; }
+/* "More" reads as just another muted tab, not a button that pulls focus. */
+.pjx-moretab { display: inline-flex; align-items: center; gap: 3px; flex: none; border: 0; background: transparent; padding: 0; cursor: pointer; font-family: var(--font-sans); font-size: 14px; color: var(--ink-gray-6); white-space: nowrap; }
+.pjx-moretab:hover, .pjx-moretab.is-active { color: var(--ink-gray-9); }
 
 /* avatar stack */
 .pjx-avstack { display: inline-flex; align-items: center; }

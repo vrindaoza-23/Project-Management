@@ -110,10 +110,10 @@ const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, val
 				@update:model-value="(v) => emit('surface', v)"
 			/>
 			<Dropdown v-if="moreItems.length" :options="moreOptions" placement="left">
-				<Button variant="ghost" theme="gray" :class="{ 'text-ink-gray-9': moreActive }">
+				<button class="pjx-moretab" :class="{ 'is-active': moreActive }">
 					More
-					<template #suffix><Icon name="chevron-down" :size="14" /></template>
-				</Button>
+					<Icon name="chevron-down" :size="13" />
+				</button>
 			</Dropdown>
 		</div>
 
