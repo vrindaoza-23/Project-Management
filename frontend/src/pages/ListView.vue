@@ -239,7 +239,7 @@ const groups = computed(() => {
 .pjx-bulkbar {
 	position: sticky;
 	bottom: 16px;
-	z-index: 30;
+	z-index: var(--z-raised);
 	margin: 16px auto 0;
 	width: fit-content;
 	display: flex;

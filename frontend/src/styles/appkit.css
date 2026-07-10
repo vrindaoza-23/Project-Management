@@ -84,52 +84,13 @@
 .ic-3 svg,svg.ic-3{width:12px;height:12px}.ic-3\.5 svg,svg.ic-3\.5{width:14px;height:14px}
 .ic-4 svg,svg.ic-4{width:16px;height:16px}.ic-5 svg,svg.ic-5{width:20px;height:20px}
 
-/* ---- Button ---- */
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  border:1px solid transparent;cursor:pointer;white-space:nowrap;
-  transition:background .12s,border-color .12s,box-shadow .12s;font-family:var(--font-sans);
-  height:28px;padding:0 8px;border-radius:8px;font-size:14px;font-weight:420}
-.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--outline-gray-3)}
-.btn.sz-md{height:32px;padding:0 10px;font-weight:500}
-.btn.sz-lg{height:40px;padding:0 14px;font-size:16px;font-weight:500;border-radius:10px}
-.btn.icon{padding:0;width:28px}.btn.icon.sz-md{width:32px}
-.btn .lbl{}
-.v-solid-gray{background:var(--surface-gray-7);color:#fff}
-.v-solid-gray:hover{background:var(--surface-gray-6)}
-.v-solid-gray:active{background:var(--surface-gray-5)}
-.v-subtle-gray{background:var(--surface-gray-2);color:var(--ink-gray-8)}
-.v-subtle-gray:hover{background:var(--surface-gray-3)}
-.v-subtle-gray:active{background:var(--surface-gray-4)}
-.v-outline-gray{background:var(--surface-white);color:var(--ink-gray-8);border-color:var(--outline-gray-2)}
-.v-outline-gray:hover{border-color:var(--outline-gray-3)}
-.v-ghost-gray{background:transparent;color:var(--ink-gray-8)}
-.v-ghost-gray:hover{background:var(--surface-gray-3)}
-.v-solid-blue{background:var(--blue-500);color:#fff}.v-solid-blue:hover{background:var(--surface-blue-3)}
-.v-subtle-blue{background:var(--surface-blue-2);color:var(--ink-blue-3)}.v-subtle-blue:hover{background:var(--blue-200)}
-.v-solid-red{background:var(--surface-red-5);color:#fff}.v-solid-red:hover{background:var(--surface-red-6)}
-.v-subtle-red{background:var(--surface-red-2);color:var(--red-700)}.v-subtle-red:hover{background:var(--surface-red-3)}
-.btn[disabled]{background:var(--surface-gray-2);color:var(--ink-gray-4);cursor:not-allowed;border-color:transparent}
-
-/* ---- Badge ---- */
-.badge{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 7px;border-radius:9999px;
-  font-size:12px;font-weight:420;white-space:nowrap}
-.badge .dot{width:6px;height:6px;border-radius:9999px}
-.bd-gray{background:var(--surface-gray-2);color:var(--ink-gray-6)}
-.bd-blue{background:var(--surface-blue-2);color:var(--ink-blue-2)}
-.bd-green{background:var(--surface-green-2);color:var(--ink-green-3)}
-.bd-amber{background:var(--surface-amber-1);color:var(--ink-amber-3)}
-.bd-red{background:var(--surface-red-2);color:var(--ink-red-4)}
+/* Buttons, badges, inputs and tabs are provided by frappe-ui components
+   (Button / Badge / FormControl / TabButtons); the parallel .btn/.badge/.input/
+   .tab kit that used to live here was removed once every call site migrated. */
 
 /* ---- Avatar ---- */
 .avatar{display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;
   color:#fff;font-weight:500;flex:none;overflow:hidden}
-
-/* ---- Input ---- */
-.input{height:28px;border:1px solid var(--outline-gray-2);border-radius:8px;background:var(--surface-white);
-  padding:0 9px;font-family:var(--font-sans);font-size:14px;color:var(--ink-gray-9);width:100%}
-.input::placeholder{color:var(--ink-gray-4)}
-.input:focus{outline:none;border-color:var(--outline-gray-3);box-shadow:0 0 0 2px var(--outline-gray-3)}
-textarea.input{height:auto;padding:7px 9px;line-height:1.5;resize:vertical}
 
 /* ---- nav item ---- */
 .nav{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;
@@ -138,12 +99,6 @@ textarea.input{height:auto;padding:7px 9px;line-height:1.5;resize:vertical}
 .nav.active{background:var(--surface-gray-3);color:var(--ink-gray-9);font-weight:500}
 .nav svg{color:var(--ink-gray-6)}
 .nav.active svg{color:var(--ink-gray-8)}
-
-/* ---- tabs ---- */
-.tabs{display:flex;gap:18px;border-bottom:1px solid var(--outline-gray-1)}
-.tab{padding:8px 1px;font-size:13px;color:var(--ink-gray-6);cursor:pointer;border-bottom:1.5px solid transparent;margin-bottom:-1px;white-space:nowrap}
-.tab:hover{color:var(--ink-gray-9)}
-.tab.active{color:var(--ink-gray-9);border-bottom-color:var(--ink-gray-9);font-weight:500}
 
 /* scrim + dialog */
 .scrim{position:absolute;inset:0;background:var(--black-overlay-300);display:flex;align-items:flex-start;

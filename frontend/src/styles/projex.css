@@ -143,7 +143,7 @@ body { background: var(--surface-white); }
 .pjx-card { background: var(--surface-white); border: 1px solid var(--outline-gray-1); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; box-shadow: var(--shadow-sm); transition: border-color .12s; touch-action: none; }
 .pjx-card:hover { border-color: var(--outline-gray-3); }
 /* Pointer-drag: the floating clone (appended to <body>) and the source card. */
-.pjx-card--ghost { position: fixed; top: 0; left: 0; z-index: 9999; pointer-events: none; box-shadow: var(--shadow-xl); opacity: .97; cursor: grabbing; will-change: transform; }
+.pjx-card--ghost { position: fixed; top: 0; left: 0; z-index: var(--z-ghost); pointer-events: none; box-shadow: var(--shadow-xl); opacity: .97; cursor: grabbing; will-change: transform; }
 .pjx-card--dragsrc { opacity: .35; }
 body.pjx-dragging { cursor: grabbing; user-select: none; }
 body.pjx-dragging * { cursor: grabbing !important; }
@@ -160,10 +160,10 @@ body.pjx-dragging * { cursor: grabbing !important; }
 /* frappe-ui Dialog overlay ships with no z-index (relies on DOM order), so
    any positioned z-index:1 app content (e.g. .pjx-inbox__filters) paints
    through the scrim. Pin it above the drawer/scrim like our other overlays. */
-.dialog-overlay { z-index: 210; }
+.dialog-overlay { z-index: var(--z-dialog); }
 
 /* ─────────────────────── Command palette ─────────────────────── */
-.pjx-cmdk { position: fixed; inset: 0; z-index: 200; background: var(--black-overlay-300); display: flex; justify-content: center; padding-top: 13vh; }
+.pjx-cmdk { position: fixed; inset: 0; z-index: var(--z-cmdk); background: var(--black-overlay-300); display: flex; justify-content: center; padding-top: 13vh; }
 .pjx-cmdk__box { width: 600px; max-width: calc(100vw - 32px); max-height: 64vh; background: var(--surface-modal); border: 1px solid var(--outline-gray-2); border-radius: 12px; box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; }
 .pjx-cmdk__inputrow { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-bottom: 1px solid var(--outline-gray-1); color: var(--ink-gray-5); }
 .pjx-cmdk__input { flex: 1; appearance: none; border: 0; outline: 0; background: transparent; font-family: var(--font-sans); font-size: 15px; color: var(--ink-gray-9); }
@@ -189,8 +189,8 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-cmdk__empty { padding: 22px; text-align: center; color: var(--ink-gray-4); }
 
 /* ─────────────────────── Drawer ─────────────────────── */
-.pjx-scrim { position: fixed; inset: 0; background: var(--black-overlay-300); z-index: 150; animation: pjxFade .18s ease both; }
-.pjx-drawer { position: fixed; top: 0; right: 0; width: min(940px, 88vw); height: 100vh; background: var(--surface-white); border-left: 1px solid var(--outline-gray-1); box-shadow: var(--shadow-xl); z-index: 160; display: flex; flex-direction: column; animation: pjxSlideIn .24s cubic-bezier(.2,.7,.2,1) both; }
+.pjx-scrim { position: fixed; inset: 0; background: var(--black-overlay-300); z-index: var(--z-scrim); animation: pjxFade .18s ease both; }
+.pjx-drawer { position: fixed; top: 0; right: 0; width: min(940px, 88vw); height: 100vh; background: var(--surface-white); border-left: 1px solid var(--outline-gray-1); box-shadow: var(--shadow-xl); z-index: var(--z-drawer); display: flex; flex-direction: column; animation: pjxSlideIn .24s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes pjxFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pjxSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .pjx-drawer__top { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--outline-gray-1); flex-shrink: 0; }
@@ -251,7 +251,7 @@ body.pjx-dragging * { cursor: grabbing !important; }
 /* ─────────────────────── Inbox ─────────────────────── */
 .pjx-inbox { display: grid; grid-template-columns: 384px 1fr; height: 100%; min-height: 0; }
 .pjx-inbox__list { border-right: 1px solid var(--outline-gray-1); overflow-y: auto; }
-.pjx-inbox__filters { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); position: sticky; top: 0; z-index: 1; }
+.pjx-inbox__filters { display: flex; align-items: center; gap: 4px; height: 44px; padding: 0 10px; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); position: sticky; top: 0; z-index: var(--z-sticky); }
 .pjx-notif { appearance: none; background: transparent; border: 0; width: 100%; text-align: left; display: flex; gap: 10px; padding: 11px 12px; border-bottom: 1px solid var(--outline-gray-1); cursor: pointer; }
 .pjx-notif:hover { background: var(--surface-gray-1); }
 .pjx-notif.is-active { background: var(--surface-blue-2); }
@@ -299,7 +299,7 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-soon__icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-gray-2); color: var(--ink-gray-5); }
 
 /* Tweaks panel z above drawer */
-.twk-panel { z-index: 1000; }
+.twk-panel { z-index: var(--z-panel); }
 ::selection { background: var(--surface-blue-2); }
 
 /* ============================================================================

@@ -164,6 +164,20 @@
   --shadow-lg: 0px 0px 1px rgba(0,0,0,0.35), 0px 6px 8px -4px rgba(0,0,0,0.1);
   --shadow-xl: 0px 0px 1px rgba(0,0,0,0.19), 0px 1px 2px rgba(0,0,0,0.07), 0px 6px 15px -5px rgba(0,0,0,0.11);
   --shadow-2xl: 0px 0px 1px rgba(0,0,0,0.2), 0px 1px 3px rgba(0,0,0,0.05), 0px 10px 24px -3px rgba(0,0,0,0.1);
+
+  /* ---- Z-INDEX SCALE ------------------------------------------------- */
+  /* One ladder for every stacking layer so overlays never guess. Values
+     preserve the previously hand-tuned order. Toasts sit above all of this
+     (vue-sonner manages its own very-high index). */
+  --z-sticky:   1;      /* sticky headers inside scroll areas */
+  --z-raised:   30;     /* raised sticky rows (e.g. bulk bar) */
+  --z-scrim:    150;    /* drawer backdrop */
+  --z-drawer:   160;    /* slide-in task drawer */
+  --z-cmdk:     200;    /* command palette */
+  --z-dialog:   210;    /* frappe-ui Dialog overlay */
+  --z-panel:    1000;   /* floating tweaks panel */
+  --z-popover:  2000;   /* popovers opened from within dialogs */
+  --z-ghost:    9999;   /* drag ghost — above everything app-level */
 }
 
 /* ============================================================================

@@ -160,7 +160,7 @@ onUnmounted(() => {
 <style>
 /* Panel is teleported to body, so its styles are global (not scoped). */
 .pjx-msel__panel {
-	z-index: 2000;
+	z-index: var(--z-popover);
 	background: var(--surface-modal);
 	border: 1px solid var(--outline-gray-2);
 	border-radius: 10px;
