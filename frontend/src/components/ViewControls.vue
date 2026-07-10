@@ -66,11 +66,35 @@ function set(patch) {
 }
 const sortLabel = computed(() => SORTS.find((s) => s.id === props.state.sortBy)?.label || 'Manual')
 const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupBy)?.label || 'Status')
+
+// Show/hide optional list columns (Helpdesk-style Columns control).
+const COLS = [
+	{ value: 'labels', label: 'Labels' },
+	{ value: 'pts', label: 'Points' },
+	{ value: 'due', label: 'Due date' },
+	{ value: 'updated', label: 'Updated' },
+	{ value: 'assignees', label: 'Assignees' },
+]
+const visibleColIds = computed(() => COLS.filter((c) => props.state.cols?.[c.value] !== false).map((c) => c.value))
+function setCols(ids) {
+	const cols = {}
+	for (const c of COLS) cols[c.value] = ids.includes(c.value)
+	set({ cols })
+}
 </script>
 
 <template>
 	<div class="pjx-list__bar">
 		<div class="pjx-chips">
+			<label class="pjx-tsearch">
+				<Icon name="search" :size="14" class="ink-5" />
+				<input
+					:value="state.search"
+					type="text"
+					placeholder="Search tasks…"
+					@input="(e) => set({ search: e.target.value })"
+				/>
+			</label>
 			<MultiSelectPopover
 				bare
 				:options="statusOptions"
@@ -121,6 +145,20 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 					<template #suffix><Icon name="chevron-down" :size="13" /></template>
 				</Button>
 			</Dropdown>
+			<MultiSelectPopover
+				v-if="showGroup"
+				bare
+				:options="COLS"
+				:model-value="visibleColIds"
+				@change="setCols"
+			>
+				<template #trigger>
+					<span class="pjx-fbtn">
+						<Icon name="columns-3" :size="14" class="ink-5" />
+						<span class="pjx-fbtn__v">Columns</span>
+					</span>
+				</template>
+			</MultiSelectPopover>
 			<Button variant="ghost" theme="gray" title="Export visible tasks to CSV" @click="emit('export')">
 				<template #prefix><Icon name="download" :size="14" /></template>
 				Export
@@ -130,6 +168,32 @@ const groupLabel = computed(() => GROUPS.find((g) => g.id === props.state.groupB
 </template>
 
 <style scoped>
+/* Named quick-filter search field (Helpdesk-style). */
+.pjx-tsearch {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 30px;
+	padding: 0 10px;
+	border: 1px solid var(--outline-gray-2);
+	border-radius: 8px;
+	background: var(--surface-white);
+}
+.pjx-tsearch:focus-within {
+	border-color: var(--outline-gray-3);
+}
+.pjx-tsearch input {
+	width: 168px;
+	border: 0;
+	outline: 0;
+	background: transparent;
+	font-family: var(--font-sans);
+	font-size: 13px;
+	color: var(--ink-gray-9);
+}
+.pjx-tsearch input::placeholder {
+	color: var(--ink-gray-4);
+}
 /* Filter triggers styled as quiet ghost controls to match the right side. */
 .pjx-fbtn {
 	display: inline-flex;

@@ -17,6 +17,7 @@ const props = defineProps({
 	issues: { type: Array, default: () => [] },
 	statuses: { type: Array, default: () => [] },
 	groupBy: { type: String, default: 'status' },
+	cols: { type: Object, default: () => ({ labels: true, pts: true, due: true, updated: true, assignees: true }) },
 	presence: { type: Object, default: () => ({}) },
 	loading: { type: Boolean, default: false },
 })
@@ -27,7 +28,15 @@ const statusById = computed(() => Object.fromEntries(props.statuses.map((s) => [
 const PRIORITY_ORDER = ['Urgent', 'High', 'Medium', 'Low', 'None']
 
 // Grid tracks shared by the header and every row (frappe-ui/list --list-columns).
-const COLUMNS = ['18px', 'minmax(0,1fr)', '168px', '48px', '80px', '88px', '108px']
+// Optional columns can be toggled off from the toolbar's Columns control.
+const COL_TRACK = { labels: '168px', pts: '48px', due: '80px', updated: '88px', assignees: '108px' }
+const COLUMNS = computed(() => {
+	const tracks = ['18px', 'minmax(0,1fr)']
+	for (const id of ['labels', 'pts', 'due', 'updated', 'assignees']) {
+		if (props.cols[id]) tracks.push(COL_TRACK[id])
+	}
+	return tracks
+})
 const listStyle = {
 	'--list-gap': '12px',
 	'--list-row-padding-x': '16px',
@@ -109,11 +118,11 @@ const groups = computed(() => {
 					<input type="checkbox" class="pjx-check is-on" :checked="allSelected" @change="toggleAll" />
 				</ListHeaderCell>
 				<ListHeaderCell>Task</ListHeaderCell>
-				<ListHeaderCell>Labels</ListHeaderCell>
-				<ListHeaderCell class="justify-end">Pts</ListHeaderCell>
-				<ListHeaderCell class="justify-end">Due</ListHeaderCell>
-				<ListHeaderCell class="justify-end">Updated</ListHeaderCell>
-				<ListHeaderCell class="justify-end">Assignees</ListHeaderCell>
+				<ListHeaderCell v-if="cols.labels">Labels</ListHeaderCell>
+				<ListHeaderCell v-if="cols.pts" class="justify-end">Pts</ListHeaderCell>
+				<ListHeaderCell v-if="cols.due" class="justify-end">Due</ListHeaderCell>
+				<ListHeaderCell v-if="cols.updated" class="justify-end">Updated</ListHeaderCell>
+				<ListHeaderCell v-if="cols.assignees" class="justify-end">Assignees</ListHeaderCell>
 			</ListHeader>
 
 			<ListGroup v-for="g in groups" :key="g.key">
@@ -156,20 +165,20 @@ const groups = computed(() => {
 						</span>
 						<LivePill :users="presence[it.name] || []" />
 					</ListCell>
-					<ListCell>
+					<ListCell v-if="cols.labels">
 						<LabelChip v-for="l in it.labels.slice(0, 2)" :key="l.label" :label="l" />
 						<span v-if="it.labels.length > 2" class="pjx-dim t-xs">+{{ it.labels.length - 2 }}</span>
 					</ListCell>
-					<ListCell class="justify-end">
+					<ListCell v-if="cols.pts" class="justify-end">
 						<span v-if="it.estimate" class="pjx-pts">{{ it.estimate }}</span>
 						<span v-else class="pjx-dim">–</span>
 					</ListCell>
-					<ListCell class="justify-end">
+					<ListCell v-if="cols.due" class="justify-end">
 						<span v-if="it.due_date" class="pjx-due" :data-tone="dueTone(it.due_date)">{{ dueLabel(it.due_date) }}</span>
 						<span v-else class="pjx-dim">–</span>
 					</ListCell>
-					<ListCell class="justify-end"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></ListCell>
-					<ListCell class="justify-end">
+					<ListCell v-if="cols.updated" class="justify-end"><span class="pjx-dim t-xs">{{ relativeTime(it.modified) }}</span></ListCell>
+					<ListCell v-if="cols.assignees" class="justify-end">
 						<AvatarStack v-if="it.assignees.length" :users="it.assignees" :size="22" />
 						<span v-else class="pjx-noass">–</span>
 					</ListCell>
