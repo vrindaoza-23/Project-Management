@@ -1,10 +1,18 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { h, ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { Dropdown, Sidebar, SidebarItem, SidebarLabel, SidebarCollapseToggle, createResource } from 'frappe-ui'
+import {
+	Sidebar,
+	SidebarHeader,
+	SidebarItem,
+	SidebarLabel,
+	SidebarCollapseToggle,
+	createResource,
+} from 'frappe-ui'
 import Icon from './Icon.vue'
-import { store, reloadBootstrap } from '@/data/store'
-import { ui, openCreateProject, openCreateWorkspace, openCreate } from '@/data/ui'
+import { store, reloadBootstrap, userName } from '@/data/store'
+import { ui, openCreateProject, openCreateWorkspace, openCreate, openAppSettings } from '@/data/ui'
+import { tweaks, setTweak } from '@/composables/useTweaks'
 import { notify, notifyError, promptText } from '@/utils/feedback'
 
 const route = useRoute()
@@ -48,15 +56,75 @@ const visibleProjects = computed(() => {
 	return active.filter((p) => p.workspace === ui.currentWorkspace)
 })
 
-const workspaceOptions = computed(() => [
-	...store.workspaces.map((w) => ({
-		label: w.workspace_name,
-		onClick: () => (ui.currentWorkspace = w.name),
-	})),
-	{ label: 'All workspaces', onClick: () => (ui.currentWorkspace = null) },
-	{ label: '+ New workspace', onClick: openCreateWorkspace },
-	{ label: '+ New team', onClick: () => newTeam() },
+// Header dropdown, Helpdesk/CRM-style: Apps submenu, workspace switcher,
+// create actions, log out.
+const installedApps = createResource({ url: 'frappe.apps.get_apps', cache: 'apps', auto: true })
+const session = createResource({
+	url: 'logout',
+	onSuccess: () => (window.location.href = '/login'),
+})
+
+const headerMenu = computed(() => [
+	{
+		group: 'apps',
+		hideLabel: true,
+		options: [
+			{
+				label: 'Apps',
+				icon: 'lucide-layout-grid',
+				condition: () => (installedApps.data || []).length > 0,
+				submenu: (installedApps.data || []).map((app) => ({
+					label: app.title,
+					slots: appLogoSlot(app),
+					onClick: () => (window.location.href = app.route),
+				})),
+			},
+		],
+	},
+	{
+		group: 'Workspaces',
+		options: [
+			...store.workspaces.map((w) => ({
+				label: w.workspace_name,
+				selected: w.name === ui.currentWorkspace,
+				onClick: () => (ui.currentWorkspace = w.name),
+			})),
+			{
+				label: 'All workspaces',
+				selected: !ui.currentWorkspace,
+				onClick: () => (ui.currentWorkspace = null),
+			},
+		],
+	},
+	{
+		group: 'create',
+		hideLabel: true,
+		options: [
+			{ label: 'New workspace', icon: 'lucide-plus', onClick: openCreateWorkspace },
+			{ label: 'New team', icon: 'lucide-users', onClick: () => newTeam() },
+		],
+	},
+	{
+		group: 'session',
+		hideLabel: true,
+		options: [
+			{ label: 'Settings', icon: 'lucide-settings', onClick: openAppSettings },
+			{
+				label: 'Dark mode',
+				icon: 'lucide-moon',
+				switch: true,
+				switchValue: tweaks.dark,
+				onClick: (v) => setTweak('dark', v),
+			},
+			{ label: 'Log out', icon: 'lucide-log-out', onClick: () => session.submit() },
+		],
+	},
 ])
+
+function appLogoSlot(app) {
+	if (!app.logo) return undefined
+	return { prefix: () => h('img', { src: app.logo, class: 'size-4 rounded-sm', alt: '' }) }
+}
 
 // Group visible projects under their team; ungrouped projects fall into a
 // trailing "No team" bucket. With no teams at all, there's a single bucket
@@ -110,21 +178,16 @@ async function newTeam() {
 
 <template>
 	<Sidebar v-model:collapsed="collapsed" width="232px" collapsed-width="56px" class="pjx-side">
-		<!-- Workspace switcher -->
-		<div class="pjx-side__head">
-			<Dropdown :options="workspaceOptions" placement="right-start">
-				<button class="pjx-ws" :class="{ 'is-collapsed': collapsed }">
-					<span class="pjx-side__wsmark">{{ (currentWorkspace?.workspace_name || 'P')[0] }}</span>
-					<template v-if="!collapsed">
-						<span class="pjx-ws__meta">
-							<span class="pjx-ws__name truncate">{{ currentWorkspace?.workspace_name || 'Projex' }}</span>
-							<span class="pjx-ws__sub">{{ store.users.length }} members</span>
-						</span>
-						<Icon name="chevrons-up-down" :size="14" class="ink-5" />
-					</template>
-				</button>
-			</Dropdown>
-		</div>
+		<!-- Workspace switcher + session menu (Helpdesk/CRM-style header) -->
+		<SidebarHeader
+			:title="currentWorkspace?.workspace_name || 'Projex'"
+			:subtitle="userName(store.user)"
+			:menu-items="headerMenu"
+		>
+			<template #logo>
+				<div class="pjx-side__mark">{{ (currentWorkspace?.workspace_name || 'P')[0] }}</div>
+			</template>
+		</SidebarHeader>
 
 		<!-- Scrollable nav -->
 		<div class="pjx-side__body">
@@ -205,65 +268,28 @@ async function newTeam() {
 				<template #prefix><Icon name="plus" :size="15" /></template>
 			</SidebarItem>
 
-			<SidebarLabel divider>&nbsp;</SidebarLabel>
-			<SidebarItem label="Roadmap" to="/roadmap" :active="isActive('/roadmap')">
+			<SidebarItem class="pjx-side__sect" label="Roadmap" to="/roadmap" :active="isActive('/roadmap')">
 				<template #prefix><Icon name="map" :size="16" /></template>
 			</SidebarItem>
 		</div>
 
-		<!-- Footer: collapse toggle + current user -->
+		<!-- Footer: collapse toggle only — user identity lives in the header -->
 		<div class="pjx-side__foot">
 			<SidebarCollapseToggle />
-			<div class="pjx-side__me">
-				<Icon name="user" :size="18" class="ink-6" />
-				<div v-if="!collapsed" class="flex col" style="flex: 1; min-width: 0; line-height: 1.2">
-					<span class="t-sm fw-medium truncate">{{ store.user }}</span>
-					<span class="t-2xs ink-5 flex items-center g-1"><span class="pjx-livedot" /> Active</span>
-				</div>
-			</div>
 		</div>
 	</Sidebar>
 </template>
 
 <style scoped>
-.pjx-side__head {
-	padding: 8px;
-}
-.pjx-ws {
-	display: flex;
-	align-items: center;
-	gap: 10px;
+.pjx-side__mark {
 	width: 100%;
-	height: 40px;
-	padding: 0 8px;
-	border: 0;
-	background: transparent;
-	border-radius: 8px;
-	cursor: pointer;
-}
-.pjx-ws:hover {
-	background: var(--surface-gray-2);
-}
-.pjx-ws.is-collapsed {
-	justify-content: center;
-	padding: 0;
-}
-.pjx-ws__meta {
-	display: flex;
-	flex-direction: column;
-	flex: 1;
-	min-width: 0;
-	line-height: 1.25;
-	text-align: left;
-}
-.pjx-ws__name {
-	font-size: 13px;
+	height: 100%;
+	display: grid;
+	place-items: center;
+	background: var(--surface-gray-7);
+	color: var(--surface-white);
+	font-size: 14px;
 	font-weight: 600;
-	color: var(--ink-gray-9);
-}
-.pjx-ws__sub {
-	font-size: 11px;
-	color: var(--ink-gray-5);
 }
 .pjx-side__body {
 	flex: 1;
@@ -273,7 +299,15 @@ async function newTeam() {
 	padding: 2px 8px 8px;
 	display: flex;
 	flex-direction: column;
-	gap: 1px;
+	gap: 2px;
+}
+/* Section rhythm (Helpdesk-style): clear space above each section header and
+   the trailing Roadmap group, so groups read apart from the flat row grid.
+   Child-component roots carry the parent scope id, so no :deep needed. */
+.pjx-side__body > [data-slot='sidebar-label'],
+.pjx-side__labelrow,
+.pjx-side__sect {
+	margin-top: 12px;
 }
 .pjx-side__labelrow {
 	display: flex;
@@ -334,21 +368,6 @@ async function newTeam() {
 }
 .pjx-side__foot {
 	margin-top: auto;
-	border-top: 1px solid var(--outline-gray-1);
-	padding: 6px 8px 8px;
-}
-.pjx-side__me {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 6px 8px;
-	border-radius: 8px;
-}
-.pjx-livedot {
-	width: 6px;
-	height: 6px;
-	border-radius: 9999px;
-	background: var(--green-500);
-	display: inline-block;
+	padding: 4px 8px 8px;
 }
 </style>

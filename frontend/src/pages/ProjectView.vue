@@ -36,23 +36,42 @@ const activeTab = ref('summary')
 const settingsOpen = ref(false)
 const presence = reactive({}) // issue name -> [user ids]
 const integration = createResource({ url: 'projex.api.integration_status', auto: true })
-const TABS = [
-	{ id: 'summary', label: 'Summary' },
-	{ id: 'list', label: 'List' },
-	{ id: 'backlog', label: 'Backlog' },
-	{ id: 'board', label: 'Board' },
-	{ id: 'calendar', label: 'Calendar' },
-	{ id: 'gantt', label: 'Gantt' },
-	{ id: 'dashboard', label: 'Dashboard' },
-	{ id: 'reports', label: 'Reports' },
-	{ id: 'timesheets', label: 'Timesheets' },
-	{ id: 'finance', label: 'Finance' },
-	{ id: 'docs', label: 'Docs' },
-	{ id: 'activity', label: 'Activity' },
+// Views are five ways to look at one thing (Tasks) — they live inside the Tasks
+// surface, not as top-level tabs.
+const TASK_VIEWS = [
+	{ id: 'list', label: 'List', icon: 'list-checks' },
+	{ id: 'board', label: 'Board', icon: 'columns-3' },
+	{ id: 'calendar', label: 'Calendar', icon: 'calendar' },
+	{ id: 'gantt', label: 'Gantt', icon: 'gantt-chart' },
+	{ id: 'backlog', label: 'Backlog', icon: 'layers' },
 ]
-const SIMPLE_TABS = ['summary', 'reports']
-// Finance is manager-only (cost/margin); hide the tab for everyone else.
-const visibleTabs = computed(() => TABS.filter((t) => t.id !== 'finance' || canManageCycles.value))
+const TASK_VIEW_IDS = TASK_VIEWS.map((v) => v.id)
+// Primary destinations. Surface id === content tab id, except Tasks (which opens
+// whichever view you last used).
+const SURFACES = [
+	{ id: 'summary', label: 'Overview' },
+	{ id: 'tasks', label: 'Tasks' },
+	{ id: 'dashboard', label: 'Dashboard' },
+	{ id: 'timesheets', label: 'Timesheets' },
+	{ id: 'docs', label: 'Docs' },
+]
+// Secondary destinations fold into the "More" menu; Finance is manager-only.
+const MORE_ITEMS = [
+	{ id: 'reports', label: 'Reports', icon: 'bar-chart-3' },
+	{ id: 'finance', label: 'Finance', icon: 'wallet', managerOnly: true },
+	{ id: 'activity', label: 'Activity', icon: 'history' },
+]
+const MORE_IDS = MORE_ITEMS.map((m) => m.id)
+
+const lastTaskView = ref('list')
+const activeSurface = computed(() => (TASK_VIEW_IDS.includes(activeTab.value) ? 'tasks' : activeTab.value))
+const moreActive = computed(() => MORE_IDS.includes(activeTab.value))
+watch(activeTab, (v) => {
+	if (TASK_VIEW_IDS.includes(v)) lastTaskView.value = v
+})
+function selectSurface(id) {
+	activeTab.value = id === 'tasks' ? lastTaskView.value : id
+}
 // People list for the Assignee filter — current user first (labelled "Me").
 const assigneeOptions = computed(() => {
 	const me = store.user
@@ -62,7 +81,8 @@ const assigneeOptions = computed(() => {
 	return opts
 })
 
-const view = reactive({ statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active' })
+const DEFAULT_COLS = { labels: true, pts: true, due: true, updated: true, assignees: true }
+const view = reactive({ statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active', search: '', cols: { ...DEFAULT_COLS } })
 
 const board = createResource({
 	url: 'projex.api.get_issues',
@@ -118,7 +138,7 @@ async function saveCurrentView(name) {
 function applyView(v) {
 	let cfg = {}
 	try { cfg = JSON.parse(v.config || '{}') } catch (e) { cfg = {} }
-	Object.assign(view, { statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active' }, cfg)
+	Object.assign(view, { statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active', search: '', cols: { ...DEFAULT_COLS } }, cfg)
 	if (v.view_type) activeTab.value = v.view_type
 }
 async function deleteView(v) {
@@ -158,6 +178,10 @@ const viewIssues = computed(() => {
 	let rows = board.data?.issues || []
 	if (view.statusFilter.length) rows = rows.filter((i) => view.statusFilter.includes(i.status))
 	if (view.assignees.length) rows = rows.filter((i) => (i.assignees || []).some((a) => view.assignees.includes(a)))
+	if (view.search.trim()) {
+		const q = view.search.trim().toLowerCase()
+		rows = rows.filter((i) => `${i.issue_id} ${i.title}`.toLowerCase().includes(q))
+	}
 	rows = [...rows]
 	if (view.sortBy === 'priority') rows.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority])
 	else if (view.sortBy === 'due') rows.sort((a, b) => (a.due_date || '9999').localeCompare(b.due_date || '9999'))
@@ -183,10 +207,12 @@ const scopeIssues = computed(() => {
 })
 
 const project = computed(() => projectByKey(props.projectKey))
-const crumbs = computed(() => [
-	{ label: 'Projects', icon: 'folder' },
-	{ label: project.value?.project_name || props.projectKey, icon: project.value?.icon || 'folder' },
-])
+const totalTasks = computed(() => board.data?.total ?? (board.data?.issues || []).length)
+// Tasks carries a live count; the rest stay label-only.
+const surfaces = computed(() =>
+	SURFACES.map((s) => (s.id === 'tasks' ? { ...s, count: totalTasks.value } : s)),
+)
+const visibleMoreItems = computed(() => MORE_ITEMS.filter((m) => !m.managerOnly || canManageCycles.value))
 const headerPresence = computed(() => {
 	if (!tweaks.presence) return []
 	const set = new Set()
@@ -199,23 +225,30 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 <template>
 	<div class="pjx-main">
 		<PageHeader
-			:crumbs="crumbs"
-			:tabs="visibleTabs"
-			:active-tab="activeTab"
+			:title="project?.project_name || projectKey"
+			:title-icon="project?.icon || 'folder'"
+			:surfaces="surfaces"
+			:active-surface="activeSurface"
+			:more-items="visibleMoreItems"
+			:more-active="moreActive"
 			:presence="headerPresence"
 			:show-settings="true"
-			@tab="activeTab = $event"
+			@surface="selectSurface"
 			@search="openPalette"
 			@new="openCreate(projectKey)"
 			@settings="settingsOpen = true"
 		/>
 		<ViewControls
-			v-if="activeTab === 'list' || activeTab === 'board'"
+			v-if="activeSurface === 'tasks'"
 			:statuses="board.data?.statuses || []"
 			:state="view"
+			:views="TASK_VIEWS"
+			:active-view="activeTab"
+			:show-filters="activeTab === 'list' || activeTab === 'board'"
 			:show-group="activeTab === 'list'"
 			:saved-views="views.data || []"
 			:assignee-options="assigneeOptions"
+			@view="activeTab = $event"
 			@update="Object.assign(view, $event)"
 			@export="exportIssuesCsv(viewIssues, board.data?.statuses || [], projectKey)"
 			@save-view="saveCurrentView"
@@ -236,6 +269,7 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 				:issues="viewIssues"
 				:statuses="board.data?.statuses || []"
 				:group-by="view.groupBy"
+				:cols="view.cols"
 				:presence="issuePresence"
 				:loading="board.loading"
 				@created="board.reload()"

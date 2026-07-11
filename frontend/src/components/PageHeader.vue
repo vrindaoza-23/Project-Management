@@ -13,15 +13,12 @@ const props = defineProps({
 	// ── tiered mode (set `title` to switch on the anchored title + surface nav) ──
 	title: { type: String, default: '' },
 	titleIcon: { type: String, default: 'folder' },
-	meta: { type: Array, default: () => [] }, // ['26 tasks', 'Active sprint']
 	surfaces: { type: Array, default: () => [] }, // [{ id, label, count }]
 	activeSurface: { type: String, default: '' },
-	views: { type: Array, default: () => [] }, // [{ id, label, icon }] nested under Tasks
-	activeView: { type: String, default: '' },
 	moreItems: { type: Array, default: () => [] }, // [{ id, label, icon }] → dropdown
 	moreActive: { type: Boolean, default: false },
 })
-const emit = defineEmits(['search', 'new', 'tab', 'settings', 'surface', 'view'])
+const emit = defineEmits(['search', 'new', 'tab', 'settings', 'surface'])
 
 // Render dropdown icons with our own Icon component (frappe-ui's Menu supports a
 // component as `icon`). This uses the curated lucide registry, so dynamic names
@@ -40,11 +37,10 @@ const surfaceOptions = computed(() =>
 		value: s.id,
 	})),
 )
-const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, value: v.id })))
 </script>
 
 <template>
-	<header class="pjx-topbar" :class="{ 'pjx-topbar--tiered': title }">
+	<header class="pjx-topbar">
 		<!-- simple mode: breadcrumbs + optional flat tab strip -->
 		<template v-if="!title">
 			<div class="pjx-crumbs">
@@ -74,27 +70,35 @@ const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, val
 			</nav>
 		</template>
 
-		<!-- tiered mode: anchored project title -->
+		<!-- tiered mode: compact project breadcrumb + surface nav in one bar -->
 		<template v-else>
 			<button class="pjx-anchor" title="Switch project" @click="emit('search')">
-				<span class="pjx-projmark"><Icon :name="titleIcon" :size="15" /></span>
-				<span class="pjx-anchor__text">
-					<span class="pjx-anchor__title">
-						{{ title }}
-						<Icon name="chevron-down" :size="14" class="ink-5" />
-					</span>
-					<span v-if="meta.length" class="pjx-anchor__meta">
-						<template v-for="(m, i) in meta" :key="i">
-							<span v-if="i > 0" class="pjx-anchor__sep">·</span>{{ m }}
-						</template>
-					</span>
-				</span>
+				<span class="pjx-projmark"><Icon :name="titleIcon" :size="13" /></span>
+				<span class="pjx-anchor__title">{{ title }}</span>
+				<Icon name="chevron-down" :size="13" class="ink-5" style="flex: none" />
 			</button>
+			<span class="pjx-topbar__div" aria-hidden="true" />
+			<nav class="pjx-topbar__nav">
+				<TabButtons
+					type="underline"
+					:model-value="activeSurface"
+					:options="surfaceOptions"
+					@update:model-value="(v) => emit('surface', v)"
+				/>
+				<Dropdown v-if="moreItems.length" :options="moreOptions" placement="left">
+					<button class="pjx-moretab" :class="{ 'is-active': moreActive }">
+						More
+						<Icon name="chevron-down" :size="13" />
+					</button>
+				</Dropdown>
+			</nav>
 		</template>
 
 		<div class="pjx-topbar__right">
 			<LivePill v-if="presence.length" :users="presence" />
-			<button class="pjx-searchbtn" title="Search & commands" @click="emit('search')">
+			<!-- Tiered mode: the project anchor already opens the palette, so a
+			     search button here would be redundant (⌘K still works). -->
+			<button v-if="!title" class="pjx-searchbtn" title="Search & commands" @click="emit('search')">
 				<Icon name="search" :size="15" />
 				<span class="kbd">⌘K</span>
 			</button>
@@ -107,30 +111,4 @@ const viewOptions = computed(() => props.views.map((v) => ({ label: v.label, val
 			</Button>
 		</div>
 	</header>
-
-	<!-- tier 2: surfaces + view switcher (tiered mode only) -->
-	<div v-if="title" class="pjx-subbar">
-		<div class="pjx-subbar__left">
-			<TabButtons
-				type="underline"
-				:model-value="activeSurface"
-				:options="surfaceOptions"
-				@update:model-value="(v) => emit('surface', v)"
-			/>
-			<Dropdown v-if="moreItems.length" :options="moreOptions" placement="left">
-				<button class="pjx-moretab" :class="{ 'is-active': moreActive }">
-					More
-					<Icon name="chevron-down" :size="13" />
-				</button>
-			</Dropdown>
-		</div>
-
-		<TabButtons
-			v-if="views.length"
-			type="subtle"
-			:model-value="activeView"
-			:options="viewOptions"
-			@update:model-value="(v) => emit('view', v)"
-		/>
-	</div>
 </template>

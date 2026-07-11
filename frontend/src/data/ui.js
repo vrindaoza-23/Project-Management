@@ -11,6 +11,7 @@ export const ui = reactive({
 	createProjectOpen: false, // create-project dialog
 	createWorkspaceOpen: false, // create-workspace dialog
 	settingsProject: null, // project key when settings dialog is open
+	appSettingsOpen: false, // app settings dialog (profile, preferences)
 	currentWorkspace: null, // selected workspace filter (null = all)
 	sidebarCollapsed: localStorage.getItem('pjx:sidebar-collapsed') === '1',
 })
@@ -44,6 +45,9 @@ export function openCreateWorkspace() {
 }
 export function openSettings(project) {
 	ui.settingsProject = project
+}
+export function openAppSettings() {
+	ui.appSettingsOpen = true
 }
 export function closeSettings() {
 	ui.settingsProject = null

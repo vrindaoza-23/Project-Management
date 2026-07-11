@@ -8,7 +8,7 @@ import TaskDrawer from '@/components/TaskDrawer.vue'
 import CreateIssueDialog from '@/components/CreateIssueDialog.vue'
 import CreateProjectDialog from '@/components/CreateProjectDialog.vue'
 import CreateWorkspaceDialog from '@/components/CreateWorkspaceDialog.vue'
-import TweaksPanel from '@/components/TweaksPanel.vue'
+import AppSettingsDialog from '@/components/settings/AppSettingsDialog.vue'
 import ConfirmHost from '@/components/ConfirmHost.vue'
 import { notifyError } from '@/utils/feedback'
 import { initStore, reloadBootstrap } from '@/data/store'
@@ -68,7 +68,7 @@ useKeyboard({
 			/>
 			<CreateProjectDialog :open="ui.createProjectOpen" @close="ui.createProjectOpen = false" />
 			<CreateWorkspaceDialog :open="ui.createWorkspaceOpen" @close="ui.createWorkspaceOpen = false" />
-			<TweaksPanel />
+			<AppSettingsDialog v-model="ui.appSettingsOpen" />
 			<ConfirmHost />
 		</div>
 	</FrappeUIProvider>

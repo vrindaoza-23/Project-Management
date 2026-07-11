@@ -37,18 +37,7 @@ body { background: var(--surface-white); }
 /* .pjx-side is the class on the frappe-ui <Sidebar> root — force the white
    surface (over frappe-ui's bg-surface-sidebar) and add the right divider. */
 .pjx-side.pjx-side { background: var(--surface-white); border-right: 1px solid var(--outline-gray-1); }
-.pjx-side__wsmark { width: 26px; height: 26px; border-radius: 7px; flex: none; background: var(--surface-gray-7); color: var(--surface-white); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
-.pjx-side__group { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 2px; }
-.pjx-side__head { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 4px; color: var(--ink-gray-5); font-size: 11px; letter-spacing: .02em; cursor: pointer; user-select: none; }
-.pjx-side__head:hover { color: var(--ink-gray-7); }
-.pjx-navrow { position: relative; }
-.pjx-navbadge { margin-left: auto; flex: none; min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 9999px; font-size: 11px; font-variant-numeric: tabular-nums; background: var(--surface-gray-3); color: var(--ink-gray-6); }
-.nav.active .pjx-navbadge { background: var(--surface-gray-4); color: var(--ink-gray-8); }
 .pjx-projicon { width: 18px; height: 18px; border-radius: 5px; flex: none; display: grid; place-items: center; background: var(--surface-gray-2); color: var(--ink-gray-6); }
-.nav.active .pjx-projicon { background: var(--surface-gray-4); color: var(--ink-gray-8); }
-.pjx-side__foot { margin-top: auto; border-top: 1px solid var(--outline-gray-1); padding: 8px; }
-.pjx-side__me { display: flex; align-items: center; gap: 10px; padding: 4px; border-radius: 8px; cursor: pointer; }
-.pjx-side__me:hover { background: var(--surface-gray-2); }
 
 /* ─────────────────────── Topbar ─────────────────────── */
 .pjx-topbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); }
@@ -68,21 +57,25 @@ body { background: var(--surface-white); }
 .pjx-presence { display: inline-flex; align-items: center; gap: 7px; }
 
 /* ── Tiered project header (title anchor + surfaces/view subbar) ── */
-.pjx-topbar--tiered { height: 56px; }
-.pjx-anchor { display: flex; align-items: center; gap: 10px; min-width: 0; border: 0; background: transparent; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
+/* Compact project breadcrumb: one quiet 13px line at the left of the tab bar
+   (Linear-style) — orientation + switcher without a second header tier. */
+.pjx-anchor { display: flex; align-items: center; gap: 7px; min-width: 0; max-width: 240px; flex: none; border: 0; background: transparent; cursor: pointer; padding: 3px 7px 3px 3px; border-radius: 7px; }
 .pjx-anchor:hover { background: var(--surface-gray-2); }
-.pjx-projmark { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-gray-2); color: var(--ink-gray-7); }
-.pjx-anchor__text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; text-align: left; }
-.pjx-anchor__title { display: flex; align-items: center; gap: 5px; font-size: 15px; font-weight: 600; color: var(--ink-gray-9); white-space: nowrap; }
-.pjx-anchor__meta { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--ink-gray-5); white-space: nowrap; }
-.pjx-anchor__sep { color: var(--ink-gray-4); }
+.pjx-projmark { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 6px; background: var(--surface-gray-2); color: var(--ink-gray-7); }
+.pjx-anchor__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 500; color: var(--ink-gray-8); }
+.pjx-topbar__div { width: 1px; height: 18px; flex: none; background: var(--outline-gray-2); }
 
-.pjx-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; padding: 0 16px; flex-shrink: 0; border-bottom: 1px solid var(--outline-gray-1); background: var(--surface-white); }
-.pjx-subbar__left { display: flex; align-items: center; gap: 24px; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
-.pjx-subbar__left::-webkit-scrollbar { display: none; }
+/* Surface nav lives inside the top bar. Stretched to full bar height so each
+   tab's active indicator lands on the bar's bottom border (espresso rail). */
+.pjx-topbar__nav { display: flex; align-items: stretch; align-self: stretch; gap: 16px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+.pjx-topbar__nav::-webkit-scrollbar { display: none; }
 /* Surface tabs (underline TabButtons): drop the full-width grey rail — the active
-   tab keeps its own dark indicator. Apple-clean: no baseline noise. */
-.pjx-subbar__left > [role='radiogroup'] > div { border-bottom: 0; }
+   tab keeps its own dark indicator — and stretch pills to the bar height. */
+.pjx-topbar__nav > [role='radiogroup'] { display: flex; align-items: stretch; }
+.pjx-topbar__nav > [role='radiogroup'] > div { border-bottom: 0; height: 100%; }
+.pjx-topbar__nav [role='radiogroup'] button, .pjx-topbar__nav [role='radio'] { height: 100%; }
+/* …and the pill span inside (it carries the fixed h-7.5 and the indicator). */
+.pjx-topbar__nav [role='radio'] > span { height: 100%; }
 /* "More" matches an inactive underline tab exactly (text-sm, ink-gray-5, same
    padding) so it reads as just another tab, not a button. */
 .pjx-moretab { display: inline-flex; align-items: center; gap: 4px; flex: none; border: 0; background: transparent; padding: 6px 10px; cursor: pointer; font-family: var(--font-sans); font-size: 13px; line-height: 16.1px; color: var(--ink-gray-5); white-space: nowrap; }
@@ -91,6 +84,11 @@ body { background: var(--surface-white); }
 /* The overflow-x on the tab strip clips a focus outline into a stray bracket;
    indicate focus with color instead. */
 .pjx-moretab:focus-visible { outline: none; color: var(--ink-gray-9); }
+
+/* Portaled menus/popovers (reka-ui) ship with z-index auto, which loses to the
+   sticky list header (z-10) even though they're portaled to <body>. Reka copies
+   the content's computed z-index onto this wrapper inline, hence !important. */
+[data-reka-popper-content-wrapper] { z-index: 20 !important; }
 
 /* avatar stack */
 .pjx-avstack { display: inline-flex; align-items: center; }
