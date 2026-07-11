@@ -55,11 +55,76 @@ def create_workspace(workspace_name, icon=None):
 
 
 @frappe.whitelist()
+def get_workspace_detail(workspace):
+	"""Everything the workspace settings dialog needs: profile, members, teams."""
+	if not frappe.db.exists("Projex Workspace", workspace):
+		frappe.throw("Workspace not found")
+	if not _can_view_workspace(workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc("Projex Workspace", workspace)
+	members = [
+		{
+			"user": m.user, "role": m.role,
+			"full_name": frappe.db.get_value("User", m.user, "full_name") or m.user,
+		}
+		for m in doc.members
+	]
+	teams = frappe.get_all(
+		"Projex Team", filters={"workspace": workspace},
+		fields=["name", "team_name", "icon", "color"], order_by="team_name asc",
+	)
+	project_count = frappe.db.count("Projex Project", {"workspace": workspace})
+	return {
+		"workspace": {
+			"name": doc.name, "workspace_name": doc.workspace_name,
+			"icon": doc.icon, "description": doc.description,
+			"can_manage": _can_manage_workspace(workspace),
+			"project_count": project_count,
+		},
+		"members": members,
+		"teams": teams,
+	}
+
+
+@frappe.whitelist()
+def update_workspace(workspace, fields):
+	import json
+	if isinstance(fields, str):
+		fields = json.loads(fields)
+	if not _can_manage_workspace(workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	doc = frappe.get_doc("Projex Workspace", workspace)
+	for k in ("workspace_name", "icon", "description"):
+		if k in fields:
+			doc.set(k, fields[k])
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
+def delete_workspace(workspace):
+	"""Delete an empty workspace. Refuses while any project still lives in it —
+	projects must be moved or deleted first. Its (project-less) teams go with it."""
+	if not _can_manage_workspace(workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	if frappe.db.count("Projex Project", {"workspace": workspace}):
+		frappe.throw("Move or delete this workspace's projects before deleting it.")
+	for t in frappe.get_all("Projex Team", filters={"workspace": workspace}, pluck="name"):
+		frappe.delete_doc("Projex Team", t, ignore_permissions=True, force=True)
+	frappe.delete_doc("Projex Workspace", workspace, ignore_permissions=True, force=True)
+	frappe.db.commit()
+	return {"ok": True}
+
+
+@frappe.whitelist()
 def create_team(workspace, team_name, icon=None, color=None):
 	"""Create a Team — an optional grouping of projects inside a workspace."""
 	_ensure_member_role()
 	if not workspace or not frappe.db.exists("Projex Workspace", workspace):
 		frappe.throw("A valid workspace is required")
+	if not _can_manage_workspace(workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc({
 		"doctype": "Projex Team", "team_name": team_name,
 		"workspace": workspace, "icon": icon or "users", "color": color,
@@ -74,6 +139,12 @@ def update_team(team, fields):
 	if isinstance(fields, str):
 		fields = json.loads(fields)
 	doc = frappe.get_doc("Projex Team", team)
+	if not _can_manage_workspace(doc.workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
+	# Moving a team to another workspace needs manage rights on the destination too.
+	dest = fields.get("workspace")
+	if dest and dest != doc.workspace and not _can_manage_workspace(dest):
+		frappe.throw("Not permitted", frappe.PermissionError)
 	for k in ("team_name", "icon", "color", "workspace"):
 		if k in fields:
 			doc.set(k, fields[k])
@@ -85,6 +156,9 @@ def update_team(team, fields):
 @frappe.whitelist()
 def delete_team(team):
 	"""Delete a team. Projects are kept — they just become ungrouped."""
+	workspace = frappe.db.get_value("Projex Team", team, "workspace")
+	if not _can_manage_workspace(workspace):
+		frappe.throw("Not permitted", frappe.PermissionError)
 	frappe.db.set_value("Projex Project", {"team": team}, "team", None)
 	frappe.delete_doc("Projex Team", team, ignore_permissions=True, force=True)
 	frappe.db.commit()
@@ -414,7 +488,48 @@ def _can_manage_any(user=None):
 	return bool(frappe.db.exists("Projex Project Member", {"user": user, "role": "Admin"}))
 
 
+def _can_manage_workspace(workspace):
+	"""True for a privileged user or a workspace member with the Admin role."""
+	roles = set(frappe.get_roles())
+	if roles & {"System Manager", "Projex Admin"}:
+		return True
+	return any(
+		m.role == "Admin"
+		for m in frappe.get_all(
+			"Projex Workspace Member",
+			filters={"parent": workspace, "user": frappe.session.user},
+			fields=["role"],
+		)
+	)
+
+
+def _can_view_workspace(workspace):
+	"""Read access to a workspace's members/teams: privileged users or any member."""
+	roles = set(frappe.get_roles())
+	if roles & {"System Manager", "Projex Admin"}:
+		return True
+	return bool(frappe.db.exists("Projex Workspace Member", {"parent": workspace, "user": frappe.session.user}))
+
+
+def _would_orphan_workspace(workspace, user):
+	"""True if removing/demoting `user` would leave the workspace with no Admin
+	member — which would strand it (only a System Manager could recover it)."""
+	admins = frappe.get_all(
+		"Projex Workspace Member", filters={"parent": workspace, "role": "Admin"}, pluck="user"
+	)
+	return admins == [user]
+
+
 MEMBER_ROLES = {"Admin", "Member", "Guest"}
+
+
+def _can_manage_membership(parent_doctype, parent):
+	"""Gate add/remove/role-change on a Project or Workspace member list."""
+	if parent_doctype == "Projex Project":
+		return _can_manage_project(parent)
+	if parent_doctype == "Projex Workspace":
+		return _can_manage_workspace(parent)
+	frappe.throw("Invalid parent")
 
 
 @frappe.whitelist()
@@ -423,7 +538,7 @@ def add_member(parent_doctype, parent, user, role="Member"):
 		frappe.throw("Invalid parent")
 	if role not in MEMBER_ROLES:
 		frappe.throw("Invalid role")
-	if parent_doctype == "Projex Project" and not _can_manage_project(parent):
+	if not _can_manage_membership(parent_doctype, parent):
 		frappe.throw("Not permitted", frappe.PermissionError)
 	doc = frappe.get_doc(parent_doctype, parent)
 	child = "members"
@@ -444,8 +559,10 @@ def update_member_role(parent_doctype, parent, user, role):
 		frappe.throw("Invalid parent")
 	if role not in MEMBER_ROLES:
 		frappe.throw("Invalid role")
-	if parent_doctype == "Projex Project" and not _can_manage_project(parent):
+	if not _can_manage_membership(parent_doctype, parent):
 		frappe.throw("Not permitted", frappe.PermissionError)
+	if parent_doctype == "Projex Workspace" and role != "Admin" and _would_orphan_workspace(parent, user):
+		frappe.throw("This is the workspace's only admin — promote someone else first.")
 	doc = frappe.get_doc(parent_doctype, parent)
 	row = next((m for m in doc.get("members") if m.user == user), None)
 	if not row:
@@ -478,10 +595,10 @@ def set_all_access(user, enabled):
 
 @frappe.whitelist()
 def remove_member(parent_doctype, parent, user):
-	if parent_doctype not in ("Projex Project", "Projex Workspace"):
-		frappe.throw("Invalid parent")
-	if parent_doctype == "Projex Project" and not _can_manage_project(parent):
+	if not _can_manage_membership(parent_doctype, parent):
 		frappe.throw("Not permitted", frappe.PermissionError)
+	if parent_doctype == "Projex Workspace" and _would_orphan_workspace(parent, user):
+		frappe.throw("This is the workspace's only admin — promote someone else first.")
 	doc = frappe.get_doc(parent_doctype, parent)
 	doc.set("members", [m for m in doc.members if m.user != user])
 	doc.save(ignore_permissions=True)
@@ -899,6 +1016,14 @@ def bootstrap():
 	workspaces = frappe.get_all(
 		"Projex Workspace", fields=["name", "workspace_name", "icon"], order_by="workspace_name asc"
 	)
+	# Which workspaces the user may open in settings (privileged => all). Drives
+	# the settings switcher so it only lists workspaces get_workspace_detail allows.
+	privileged = bool(set(frappe.get_roles()) & {"System Manager", "Projex Admin"})
+	my_ws = set(
+		frappe.get_all("Projex Workspace Member", filters={"user": frappe.session.user}, pluck="parent")
+	)
+	for w in workspaces:
+		w["is_member"] = privileged or w["name"] in my_ws
 	teams = frappe.get_all(
 		"Projex Team", fields=["name", "team_name", "workspace", "icon", "color"],
 		order_by="team_name asc",
@@ -1189,13 +1314,32 @@ def bulk_update_issues(names, fields):
 
 @frappe.whitelist()
 def bulk_delete_issues(names):
-	"""Delete many issues at once (subtasks cascade via Frappe link checks)."""
+	"""Delete many issues at once.
+
+	An issue accrues linked records — Activity, Comments, Notifications, Time
+	Logs, Issue Links and subtasks — whose Link fields make Frappe's integrity
+	check refuse a bare delete_doc (LinkExistsError). Clear those dependents
+	first (in dependency order), detach any subtasks, then delete the issue via
+	delete_doc so its on_trash/realtime still fires and child rows cascade.
+	"""
 	import json
 	if isinstance(names, str):
 		names = json.loads(names)
+	names = names or []
+	# Same gate delete_doc applied implicitly before — keep it explicit.
+	for name in names:
+		if not frappe.has_permission("Projex Issue", "delete", doc=name):
+			frappe.throw(f"Not permitted to delete {name}", frappe.PermissionError)
 	deleted = 0
-	for name in names or []:
-		frappe.delete_doc("Projex Issue", name)  # respects has_permission
+	for name in names:
+		frappe.db.delete("Projex Comment", {"issue": name})
+		frappe.db.delete("Projex Issue Link", {"issue": name})
+		frappe.db.delete("Projex Issue Link", {"target": name})
+		frappe.db.delete("Projex Notification", {"issue": name})
+		frappe.db.delete("Projex Time Log", {"issue": name})
+		frappe.db.delete("Projex Activity", {"issue": name})
+		frappe.db.set_value("Projex Issue", {"parent_issue": name}, "parent_issue", None)
+		frappe.delete_doc("Projex Issue", name)  # fires on_trash (realtime); children cascade
 		deleted += 1
 	frappe.db.commit()
 	return {"deleted": deleted}

@@ -3,13 +3,15 @@ import { computed, ref } from 'vue'
 import {
 	ListView,
 	ListHeader,
-	ListGroups,
+	ListGroupHeader,
+	ListRow,
 	ListRows,
 	ListEmptyState,
 	ListSelectBanner,
 	Dropdown,
 	Button,
 } from 'frappe-ui'
+import GroupAddRow from '@/components/GroupAddRow.vue'
 import Icon from '@/components/Icon.vue'
 import StatusDot from '@/components/StatusDot.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
@@ -76,6 +78,13 @@ const groups = computed(() => {
 const groupedRows = computed(() =>
 	groups.value.map((g) => ({ group: g.label, key: g.key, status: g.status, priority: g.priority, rows: g.items })),
 )
+
+// Context the group's inline add-row stamps onto new tasks.
+function addFields(group) {
+	if (props.groupBy === 'status' && group.status) return { status: group.status.name }
+	if (props.groupBy === 'priority' && group.priority) return { priority: group.priority }
+	return {}
+}
 
 // ---- bulk actions: selection is owned by ListView; we mirror it for the banner ----
 const listRef = ref(null)
@@ -161,9 +170,19 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 			<!-- Override the default layout only to put our bulk actions in the
 			     native selection banner. group-header/cell slots still apply. -->
 			<template #default="{ showGroupedRows, selectable }">
-				<ListHeader />
+				<ListHeader class="pjx-listhead" />
 				<template v-if="groupedRows.length">
-					<ListGroups v-if="showGroupedRows" />
+					<!-- Groups rendered by hand (instead of ListGroups) so each one can
+					     end in an inline add-row and get roomier spacing. -->
+					<div v-if="showGroupedRows">
+						<div v-for="g in groupedRows" :key="g.key">
+							<ListGroupHeader :group="g" />
+							<div v-if="!g.collapsed" class="pjx-grouprows">
+								<ListRow v-for="row in g.rows" :key="row.name" :row="row" />
+								<GroupAddRow :project-key="projectKey" :fields="addFields(g)" @created="emit('created')" />
+							</div>
+						</div>
+					</div>
 					<ListRows v-else />
 				</template>
 				<ListEmptyState v-else />
@@ -194,11 +213,19 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 </template>
 
 <style scoped>
+/* Keep the column header visible while .pjx-view scrolls. The two ListView
+   wrappers create their own overflow contexts, which would break sticky, so
+   scrolling (both axes) is deferred to .pjx-view. */
+.pjx-list > :first-child { overflow-x: visible; }
+.pjx-list :deep(.pjx-tasklist) { overflow-y: visible; }
+.pjx-listhead { position: sticky; top: 0; z-index: 10; }
 /* The config ListView doesn't size custom #cell content, so set it explicitly
    (otherwise it inherits the 16px browser default and reads too big). */
 .pjx-tc { display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; font-size: 13px; }
 .pjx-tc :deep(.pjx-title) { font-size: 13px; }
 .pjx-tc--r { justify-content: flex-end; }
+/* Roomier than ListGroupRows' stock mt-2/mb-5 so groups read as distinct bands. */
+.pjx-grouprows { margin: 4px 0 28px; }
 .pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
 .pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
 .pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }

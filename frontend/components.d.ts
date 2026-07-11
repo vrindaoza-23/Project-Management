@@ -11,6 +11,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    AppSettingsDialog: typeof import('./src/components/settings/AppSettingsDialog.vue')['default']
     AppSidebar: typeof import('./src/components/AppSidebar.vue')['default']
     AvatarStack: typeof import('./src/components/AvatarStack.vue')['default']
     BoardCard: typeof import('./src/components/BoardCard.vue')['default']
@@ -21,7 +22,7 @@ declare module 'vue' {
     CreateIssueDialog: typeof import('./src/components/CreateIssueDialog.vue')['default']
     CreateProjectDialog: typeof import('./src/components/CreateProjectDialog.vue')['default']
     CreateWorkspaceDialog: typeof import('./src/components/CreateWorkspaceDialog.vue')['default']
-    Donut: typeof import('./src/components/Donut.vue')['default']
+    GroupAddRow: typeof import('./src/components/GroupAddRow.vue')['default']
     Icon: typeof import('./src/components/Icon.vue')['default']
     LabelChip: typeof import('./src/components/LabelChip.vue')['default']
     LivePill: typeof import('./src/components/LivePill.vue')['default']
@@ -29,8 +30,14 @@ declare module 'vue' {
     MultiSelectPopover: typeof import('./src/components/MultiSelectPopover.vue')['default']
     NativeSelect: typeof import('./src/components/NativeSelect.vue')['default']
     PageHeader: typeof import('./src/components/PageHeader.vue')['default']
+    PreferenceSettings: typeof import('./src/components/settings/PreferenceSettings.vue')['default']
     PriorityBars: typeof import('./src/components/PriorityBars.vue')['default']
-    ProjectSettingsDialog: typeof import('./src/components/ProjectSettingsDialog.vue')['default']
+    ProfileSettings: typeof import('./src/components/settings/ProfileSettings.vue')['default']
+    ProjectCyclesSettings: typeof import('./src/components/settings/ProjectCyclesSettings.vue')['default']
+    ProjectErpSettings: typeof import('./src/components/settings/ProjectErpSettings.vue')['default']
+    ProjectGeneralSettings: typeof import('./src/components/settings/ProjectGeneralSettings.vue')['default']
+    ProjectLabelsSettings: typeof import('./src/components/settings/ProjectLabelsSettings.vue')['default']
+    ProjectMembersSettings: typeof import('./src/components/settings/ProjectMembersSettings.vue')['default']
     QuickAdd: typeof import('./src/components/QuickAdd.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
@@ -41,7 +48,9 @@ declare module 'vue' {
     StatusDot: typeof import('./src/components/StatusDot.vue')['default']
     TaskDrawer: typeof import('./src/components/TaskDrawer.vue')['default']
     TimesheetLogDialog: typeof import('./src/components/TimesheetLogDialog.vue')['default']
-    TweaksPanel: typeof import('./src/components/TweaksPanel.vue')['default']
     ViewControls: typeof import('./src/components/ViewControls.vue')['default']
+    WorkspaceGeneralSettings: typeof import('./src/components/settings/WorkspaceGeneralSettings.vue')['default']
+    WorkspaceMembersSettings: typeof import('./src/components/settings/WorkspaceMembersSettings.vue')['default']
+    WorkspaceTeamsSettings: typeof import('./src/components/settings/WorkspaceTeamsSettings.vue')['default']
   }
 }

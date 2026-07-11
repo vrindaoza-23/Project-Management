@@ -1,10 +1,9 @@
 <script setup>
 import { computed, watch } from 'vue'
-import { createResource } from 'frappe-ui'
-import Icon from '@/components/Icon.vue'
-import Donut from '@/components/Donut.vue'
+import { createResource, NumberChart, DonutChart, AxisChart } from 'frappe-ui'
 import BurndownChart from '@/components/BurndownChart.vue'
 import SprintReview from '@/components/SprintReview.vue'
+import { cssColor } from '@/utils/chartColors'
 
 const emit = defineEmits(['open'])
 
@@ -17,106 +16,106 @@ const reports = createResource({
 })
 watch(() => props.projectKey, () => reports.reload())
 
-const distribution = computed(() =>
-	(reports.data?.distribution || []).map((d) => ({ status_name: d.label, color_theme: d.color_theme, count: d.count })),
-)
+const DOT = { gray: 'var(--gray-400)', blue: 'var(--blue-500)', amber: 'var(--amber-500)', green: 'var(--green-600)', red: 'var(--red-500)', purple: 'var(--purple-500)' }
+
+const distribution = computed(() => (reports.data?.distribution || []).filter((d) => d.count > 0))
+// DonutChart sorts rows by value descending, so the colors array must follow
+// that order, not the API order.
+const distributionChart = computed(() => ({
+	data: distribution.value.map((d) => ({ status: d.label, count: d.count })),
+	title: 'Status distribution',
+	colors: [...distribution.value].sort((a, b) => b.count - a.count).map((d) => cssColor(DOT[d.color_theme] || 'var(--gray-400)')),
+	categoryColumn: 'status',
+	valueColumn: 'count',
+}))
+
 const velocity = computed(() => reports.data?.velocity || [])
-const throughput = computed(() => reports.data?.throughput || [])
-const maxPts = computed(() => Math.max(1, ...velocity.value.map((v) => v.points)))
-const maxThru = computed(() => Math.max(1, ...throughput.value.map((t) => t.count)))
+const velocityChart = computed(() => ({
+	data: velocity.value.map((v) => ({ cycle: v.cycle, points: v.points })),
+	title: 'Velocity by cycle',
+	subtitle: 'Story points completed per sprint',
+	colors: [cssColor('var(--blue-500)')],
+	xAxis: { key: 'cycle', type: 'category' },
+	yAxis: {},
+	series: [{ name: 'points', type: 'bar', showDataLabels: true }],
+}))
 
-const rework = computed(() => reports.data?.rework || {})
-const agingBuckets = computed(() => {
+const AGE_COLORS = ['var(--green-600)', 'var(--gray-400)', 'var(--amber-500)', 'var(--red-500)']
+const agingChart = computed(() => {
 	const a = reports.data?.aging || {}
-	return [
-		{ key: 'le3', label: '≤3d', count: a.le3 || 0, cls: 'green' },
-		{ key: 'd4_7', label: '4–7d', count: a.d4_7 || 0, cls: '' },
-		{ key: 'd8_14', label: '8–14d', count: a.d8_14 || 0, cls: 'amber' },
-		{ key: 'gt14', label: '>14d', count: a.gt14 || 0, cls: 'red' },
-	]
+	return {
+		data: [
+			{ bucket: '≤3d', count: a.le3 || 0 },
+			{ bucket: '4–7d', count: a.d4_7 || 0 },
+			{ bucket: '8–14d', count: a.d8_14 || 0 },
+			{ bucket: '>14d', count: a.gt14 || 0 },
+		],
+		title: 'Status aging',
+		subtitle: 'Open tasks by time in current status',
+		colors: AGE_COLORS.map(cssColor),
+		xAxis: { key: 'bucket', type: 'category' },
+		yAxis: {},
+		series: [{ name: 'count', type: 'bar', showDataLabels: true, echartOptions: { colorBy: 'data' } }],
+	}
 })
-const maxAge = computed(() => Math.max(1, ...agingBuckets.value.map((b) => b.count)))
 
+const throughput = computed(() => reports.data?.throughput || [])
 function weekLabel(iso) {
 	return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+const throughputChart = computed(() => ({
+	data: throughput.value.map((t) => ({ week: weekLabel(t.week), count: t.count })),
+	title: 'Throughput',
+	subtitle: 'Tasks completed per week',
+	colors: [cssColor('var(--green-600)')],
+	xAxis: { key: 'week', type: 'category' },
+	yAxis: {},
+	series: [{ name: 'count', type: 'bar', showDataLabels: true }],
+}))
+
+const rework = computed(() => reports.data?.rework || {})
+const cycleStat = computed(() => ({ title: 'Avg cycle time (created → done)', value: reports.data?.avg_cycle_time ?? 0, suffix: 'd' }))
+const reworkStat = computed(() => ({ title: 'Rework rate (tasks bounced back)', value: rework.value.rework_rate ?? 0, suffix: '%' }))
 </script>
 
 <template>
 	<div class="pjx-reports">
-		<div class="pjx-panel pjx-panel--wide" style="margin-bottom: 12px">
+		<div class="pjx-card pjx-card--list" style="margin-bottom: 12px">
 			<BurndownChart :project-key="projectKey" />
 		</div>
-		<div class="pjx-panel pjx-panel--wide" style="margin-bottom: 12px">
+		<div class="pjx-card pjx-card--list" style="margin-bottom: 12px">
 			<SprintReview :project-key="projectKey" @open="emit('open', $event)" />
 		</div>
+
+		<div class="pjx-rgrid" style="margin-bottom: 12px">
+			<div class="pjx-card">
+				<NumberChart :config="cycleStat" />
+				<div class="pjx-card__cap">{{ reports.data?.total_completed ?? 0 }} completed tasks measured</div>
+			</div>
+			<div class="pjx-card">
+				<NumberChart :config="reworkStat" />
+				<div class="pjx-card__cap">
+					<b>{{ rework.total_reopens ?? 0 }}</b> reopened · <b>{{ rework.total_rejections ?? 0 }}</b> sent back ·
+					<b>{{ rework.reworked_tasks ?? 0 }}</b> tasks affected
+				</div>
+			</div>
+		</div>
+
 		<div class="pjx-rgrid">
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Status distribution</div>
-				<div class="flex items-center g-5" style="padding: 8px 4px">
-					<Donut :slices="distribution"><template #label><div class="pjx-donut__lbl">tasks</div></template></Donut>
-					<div class="flex col g-2" style="flex: 1">
-						<div v-for="s in distribution" :key="s.status_name" class="pjx-legend">
-							<span style="flex: 1">{{ s.status_name }}</span><span class="pjx-dim">{{ s.count }}</span>
-						</div>
-					</div>
-				</div>
+			<div class="pjx-card pjx-card--chart">
+				<DonutChart v-if="distribution.length" :config="distributionChart" />
+				<div v-else class="pjx-card__empty">No work items yet.</div>
 			</div>
-
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Cycle time</div>
-				<div class="pjx-bignum">{{ reports.data?.avg_cycle_time ?? 0 }}<span> days avg</span></div>
-				<div class="t-sm ink-5">{{ reports.data?.total_completed ?? 0 }} completed tasks measured (created → done)</div>
+			<div class="pjx-card pjx-card--chart">
+				<AxisChart v-if="velocity.length" :config="velocityChart" />
+				<div v-else class="pjx-card__empty">No cycles yet.</div>
 			</div>
-
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Velocity by cycle</div>
-				<div class="pjx-bars">
-					<div v-for="v in velocity" :key="v.cycle" class="pjx-bar">
-						<div class="pjx-bar__track">
-							<div class="pjx-bar__fill" :style="{ height: (v.points / maxPts) * 100 + '%' }" />
-						</div>
-						<div class="pjx-bar__val">{{ v.points }}</div>
-						<div class="pjx-bar__lbl">{{ v.cycle }}</div>
-					</div>
-					<div v-if="!velocity.length" class="pjx-dim t-sm">No cycles yet.</div>
-				</div>
+			<div class="pjx-card pjx-card--chart">
+				<AxisChart :config="agingChart" />
 			</div>
-
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Status aging (open tasks, time in status)</div>
-				<div class="pjx-bars">
-					<div v-for="b in agingBuckets" :key="b.key" class="pjx-bar">
-						<div class="pjx-bar__track">
-							<div class="pjx-bar__fill" :class="b.cls" :style="{ height: (b.count / maxAge) * 100 + '%' }" />
-						</div>
-						<div class="pjx-bar__val">{{ b.count }}</div>
-						<div class="pjx-bar__lbl">{{ b.label }}</div>
-					</div>
-				</div>
-			</div>
-
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Rework rate</div>
-				<div class="pjx-bignum">{{ rework.rework_rate ?? 0 }}<span>% of tasks bounced back</span></div>
-				<div class="flex g-4" style="margin-top: 8px">
-					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.total_reopens ?? 0 }}</b> reopened</div>
-					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.total_rejections ?? 0 }}</b> sent back</div>
-					<div class="t-sm ink-5"><b style="color: var(--ink-gray-8)">{{ rework.reworked_tasks ?? 0 }}</b> tasks affected</div>
-				</div>
-			</div>
-
-			<div class="pjx-panel">
-				<div class="pjx-panel__h">Throughput (tasks done / week)</div>
-				<div class="pjx-bars">
-					<div v-for="t in throughput" :key="t.week" class="pjx-bar">
-						<div class="pjx-bar__track">
-							<div class="pjx-bar__fill green" :style="{ height: (t.count / maxThru) * 100 + '%' }" />
-						</div>
-						<div class="pjx-bar__val">{{ t.count }}</div>
-						<div class="pjx-bar__lbl">{{ weekLabel(t.week) }}</div>
-					</div>
-				</div>
+			<div class="pjx-card pjx-card--chart">
+				<AxisChart v-if="throughput.length" :config="throughputChart" />
+				<div v-else class="pjx-card__empty">Nothing completed yet.</div>
 			</div>
 		</div>
 	</div>
@@ -125,19 +124,13 @@ function weekLabel(iso) {
 <style scoped>
 .pjx-reports { padding: 16px; overflow-y: auto; }
 .pjx-rgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.pjx-panel { border: 1px solid var(--outline-gray-1); border-radius: 10px; padding: 14px; background: var(--surface-white); }
-.pjx-panel__h { font-size: 14px; font-weight: 600; color: var(--ink-gray-9); margin-bottom: 10px; }
-.pjx-legend { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-gray-8); }
-.pjx-bignum { font-size: 36px; font-weight: 600; color: var(--ink-gray-9); }
-.pjx-bignum span { font-size: 14px; font-weight: 400; color: var(--ink-gray-5); margin-left: 6px; }
-.pjx-bars { display: flex; align-items: flex-end; gap: 14px; height: 160px; padding-top: 8px; }
-.pjx-bar { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; height: 100%; justify-content: flex-end; }
-.pjx-bar__track { width: 28px; flex: 1; display: flex; align-items: flex-end; background: var(--surface-gray-1); border-radius: 6px; overflow: hidden; }
-.pjx-bar__fill { width: 100%; background: var(--blue-500); border-radius: 6px 6px 0 0; min-height: 2px; }
-.pjx-bar__fill.green { background: var(--green-600); }
-.pjx-bar__fill.amber { background: var(--amber-500); }
-.pjx-bar__fill.red { background: var(--red-500); }
-.pjx-bar__val { font-size: 12px; font-weight: 500; color: var(--ink-gray-8); }
-.pjx-bar__lbl { font-size: 10px; color: var(--ink-gray-5); text-align: center; }
+.pjx-card { border: 1px solid var(--outline-gray-1); border-radius: 8px; background: var(--surface-base); overflow: hidden; }
+.pjx-card--chart { height: 300px; }
+.pjx-card--list { padding: 14px 16px; }
+/* Match the ECharts title styles (getTitleOptions) so hand-built panels and
+   chart panels read as one family. */
+.pjx-card__cap { padding: 0 24px 16px; font-size: 12px; color: var(--ink-gray-5); }
+.pjx-card__cap b { color: var(--ink-gray-8); font-weight: 500; }
+.pjx-card__empty { display: flex; align-items: center; height: 100%; font-size: 13px; color: var(--ink-gray-5); padding: 0 16px; }
 @media (max-width: 900px) { .pjx-rgrid { grid-template-columns: 1fr; } }
 </style>

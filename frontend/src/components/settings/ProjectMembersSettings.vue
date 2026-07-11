@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { createResource, Avatar, Button, FormControl } from 'frappe-ui'
+import { createResource, Avatar, Button, FormControl, SettingsHeader, SettingsBody } from 'frappe-ui'
 import Icon from '../Icon.vue'
 import SelectField from '../SelectField.vue'
 import { store, reloadBootstrap } from '@/data/store'
@@ -8,10 +8,9 @@ import { notify, promptText } from '@/utils/feedback'
 
 const props = defineProps({
 	project: { type: String, required: true },
-	members: { type: Array, default: () => [] },
-	canManage: Boolean,
+	data: { type: Object, required: true }, // get_project_detail payload
 })
-const emit = defineEmits(['changed'])
+const emit = defineEmits(['reload'])
 
 const memberAdd = createResource({ url: 'projex.api.add_member' })
 const memberRemove = createResource({ url: 'projex.api.remove_member' })
@@ -25,7 +24,9 @@ const bulkEmails = ref('')
 const bulkResult = ref(null)
 const inviteLinks = ref([])
 
-const memberIds = computed(() => props.members.map((m) => m.user))
+const canManage = computed(() => props.data?.project?.can_manage)
+const members = computed(() => props.data?.members || [])
+const memberIds = computed(() => members.value.map((m) => m.user))
 const assignableUsers = computed(() =>
 	store.users
 		.map((u) => ({ value: u.name, label: u.full_name || u.name }))
@@ -33,7 +34,7 @@ const assignableUsers = computed(() =>
 )
 
 onMounted(() => {
-	if (props.canManage) loadLinks()
+	if (canManage.value) loadLinks()
 })
 
 async function addMembers() {
@@ -41,11 +42,11 @@ async function addMembers() {
 		await memberAdd.submit({ parent_doctype: 'Projex Project', parent: props.project, user: u, role: 'Member' })
 	}
 	newMember.value = []
-	emit('changed')
+	emit('reload')
 }
 async function removeMember(user) {
 	await memberRemove.submit({ parent_doctype: 'Projex Project', parent: props.project, user })
-	emit('changed')
+	emit('reload')
 }
 
 async function bulkInvite() {
@@ -54,7 +55,7 @@ async function bulkInvite() {
 	bulkResult.value = res.results || []
 	bulkEmails.value = ''
 	await reloadBootstrap()
-	emit('changed')
+	emit('reload')
 }
 
 async function loadLinks() {
@@ -79,62 +80,66 @@ async function revokeLink(name) {
 </script>
 
 <template>
-	<div class="flex col g-3">
-		<div v-for="m in members" :key="m.user" class="pjx-mrow">
-			<Avatar :label="m.full_name" size="sm" />
-			<span style="flex: 1">{{ m.full_name }}</span>
-			<span class="pjx-dim t-xs">{{ m.role }}</span>
-			<Button v-if="canManage" variant="ghost" theme="gray" @click="removeMember(m.user)">
-				<template #icon><Icon name="x" :size="14" /></template>
-			</Button>
-		</div>
-		<template v-if="canManage">
-			<div class="flex g-2 items-end">
-				<div class="flex col g-1" style="flex: 1">
-					<span class="t-xs ink-5">Add existing members</span>
-					<SelectField v-model="newMember" :options="assignableUsers" multiple placeholder="Pick users" />
-				</div>
-				<Button variant="subtle" theme="gray" :disabled="!newMember.length" @click="addMembers">Add</Button>
+	<SettingsHeader title="Members" :description="`${data.project?.project_name || project} · ${data.project?.key || project}`" />
+	<SettingsBody>
+		<div class="flex col g-3" style="padding-top: 8px">
+			<div v-if="!canManage" class="t-sm ink-5">You have read-only access to this project's settings.</div>
+			<div v-for="m in members" :key="m.user" class="pjx-mrow">
+				<Avatar :label="m.full_name" size="sm" />
+				<span style="flex: 1">{{ m.full_name }}</span>
+				<span class="pjx-dim t-xs">{{ m.role }}</span>
+				<Button v-if="canManage" variant="ghost" theme="gray" @click="removeMember(m.user)">
+					<template #icon><Icon name="x" :size="14" /></template>
+				</Button>
 			</div>
-			<div class="flex col g-1">
-				<span class="t-xs ink-5">Invite by email — paste many (commas, spaces or new lines)</span>
-				<FormControl
-					v-model="bulkEmails"
-					type="textarea"
-					:rows="2"
-					placeholder="ann@company.com, ben@company.com&#10;cara@company.com"
-				/>
-				<div class="flex g-2" style="justify-content: flex-end">
-					<Button variant="subtle" theme="gray" :loading="bulkInviter.loading" :disabled="!bulkEmails.trim()" @click="bulkInvite">Send invites</Button>
-				</div>
-				<div v-if="bulkResult" class="flex col g-1" style="margin-top: 4px">
-					<span v-for="r in bulkResult" :key="r.email" class="t-xs">
-						<span :style="{ color: r.status === 'error' ? 'var(--ink-red-3)' : 'var(--ink-green-3)' }">●</span>
-						{{ r.email }} — {{ r.status }}{{ r.message ? ': ' + r.message : '' }}
-					</span>
-				</div>
-			</div>
-
-			<div class="pjx-zone" style="flex-direction: column; align-items: stretch; gap: 8px">
-				<div class="flex items-center g-2">
+			<template v-if="canManage">
+				<div class="flex g-2 items-end">
 					<div class="flex col g-1" style="flex: 1">
-						<span class="t-sm" style="font-weight: 600">Invite link</span>
-						<span class="t-xs ink-5">Anyone with the link can join this project (expires in 7 days).</span>
+						<span class="t-xs ink-5">Add existing members</span>
+						<SelectField v-model="newMember" :options="assignableUsers" multiple placeholder="Pick users" />
 					</div>
-					<Button variant="subtle" theme="gray" :loading="linkCreator.loading" @click="makeInviteLink">Create link</Button>
+					<Button variant="subtle" theme="gray" :disabled="!newMember.length" @click="addMembers">Add</Button>
 				</div>
-				<div v-for="lk in inviteLinks" :key="lk.name" class="flex items-center g-2 pjx-linkrow">
-					<FormControl class="pjx-linkurl" type="text" :model-value="lk.url" readonly @focus="(e) => e.target.select()" />
-					<Button variant="ghost" theme="gray" title="Copy" @click="copyLink(lk.url)">
-						<template #icon><Icon name="copy" :size="14" /></template>
-					</Button>
-					<Button variant="ghost" theme="gray" title="Revoke" @click="revokeLink(lk.name)">
-						<template #icon><Icon name="trash-2" :size="14" /></template>
-					</Button>
+				<div class="flex col g-1">
+					<span class="t-xs ink-5">Invite by email — paste many (commas, spaces or new lines)</span>
+					<FormControl
+						v-model="bulkEmails"
+						type="textarea"
+						:rows="2"
+						placeholder="ann@company.com, ben@company.com&#10;cara@company.com"
+					/>
+					<div class="flex g-2" style="justify-content: flex-end">
+						<Button variant="subtle" theme="gray" :loading="bulkInviter.loading" :disabled="!bulkEmails.trim()" @click="bulkInvite">Send invites</Button>
+					</div>
+					<div v-if="bulkResult" class="flex col g-1" style="margin-top: 4px">
+						<span v-for="r in bulkResult" :key="r.email" class="t-xs">
+							<span :style="{ color: r.status === 'error' ? 'var(--ink-red-3)' : 'var(--ink-green-3)' }">●</span>
+							{{ r.email }} — {{ r.status }}{{ r.message ? ': ' + r.message : '' }}
+						</span>
+					</div>
 				</div>
-			</div>
-		</template>
-	</div>
+
+				<div class="pjx-zone" style="flex-direction: column; align-items: stretch; gap: 8px">
+					<div class="flex items-center g-2">
+						<div class="flex col g-1" style="flex: 1">
+							<span class="t-sm" style="font-weight: 600">Invite link</span>
+							<span class="t-xs ink-5">Anyone with the link can join this project (expires in 7 days).</span>
+						</div>
+						<Button variant="subtle" theme="gray" :loading="linkCreator.loading" @click="makeInviteLink">Create link</Button>
+					</div>
+					<div v-for="lk in inviteLinks" :key="lk.name" class="flex items-center g-2 pjx-linkrow">
+						<FormControl class="pjx-linkurl" type="text" :model-value="lk.url" readonly @focus="(e) => e.target.select()" />
+						<Button variant="ghost" theme="gray" title="Copy" @click="copyLink(lk.url)">
+							<template #icon><Icon name="copy" :size="14" /></template>
+						</Button>
+						<Button variant="ghost" theme="gray" title="Revoke" @click="revokeLink(lk.name)">
+							<template #icon><Icon name="trash-2" :size="14" /></template>
+						</Button>
+					</div>
+				</div>
+			</template>
+		</div>
+	</SettingsBody>
 </template>
 
 <style scoped>

@@ -25,7 +25,7 @@ const ptsPct = computed(() => (r.value.total_points ? Math.round((r.value.done_p
 <template>
 	<div>
 		<div class="pjx-sr__top">
-			<div class="pjx-panel__h" style="margin: 0">Sprint review</div>
+			<div class="pjx-sr__h">Sprint review</div>
 			<div style="width: 180px">
 				<SelectField
 					:options="cycleOptions"
@@ -83,6 +83,8 @@ const ptsPct = computed(() => (r.value.total_points ? Math.round((r.value.done_p
 
 <style scoped>
 .pjx-sr__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+/* Matches the ECharts title spec so hand-built and chart panels read as one family. */
+.pjx-sr__h { font-size: 14px; font-weight: 500; color: var(--ink-gray-8); }
 .pjx-sr__empty { padding: 20px 4px; color: var(--ink-gray-4); font-size: 13px; }
 .pjx-sr__stats { display: flex; gap: 24px; align-items: center; padding: 8px 0 14px; flex-wrap: wrap; }
 .pjx-sr__big { font-size: 26px; font-weight: 600; color: var(--ink-gray-9); }

@@ -2,9 +2,9 @@ import { request } from '@playwright/test'
 
 // Log in once via the API and persist the session so specs run authenticated.
 export default async function globalSetup() {
-	const base = process.env.PROJEX_BASE_URL || 'http://mysite.localhost:8000'
+	const base = process.env.PROJEX_BASE_URL || 'http://localhost:8000'
 	const usr = process.env.PROJEX_USER || 'Administrator'
-	const pwd = process.env.PROJEX_PWD || 'admin123'
+	const pwd = process.env.PROJEX_PWD || 'admin'
 
 	const ctx = await request.newContext({ baseURL: base })
 	const res = await ctx.post('/api/method/login', { form: { usr, pwd } })

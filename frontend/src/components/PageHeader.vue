@@ -9,7 +9,6 @@ const props = defineProps({
 	tabs: { type: Array, default: () => [] }, // [{ id, label }] — legacy flat strip
 	activeTab: { type: String, default: '' },
 	presence: { type: Array, default: () => [] }, // user ids viewing this project
-	showSettings: { type: Boolean, default: false },
 	// ── tiered mode (set `title` to switch on the anchored title + surface nav) ──
 	title: { type: String, default: '' },
 	titleIcon: { type: String, default: 'folder' },
@@ -18,7 +17,7 @@ const props = defineProps({
 	moreItems: { type: Array, default: () => [] }, // [{ id, label, icon }] → dropdown
 	moreActive: { type: Boolean, default: false },
 })
-const emit = defineEmits(['search', 'new', 'tab', 'settings', 'surface'])
+const emit = defineEmits(['search', 'new', 'tab', 'surface'])
 
 // Render dropdown icons with our own Icon component (frappe-ui's Menu supports a
 // component as `icon`). This uses the curated lucide registry, so dynamic names
@@ -102,9 +101,6 @@ const surfaceOptions = computed(() =>
 				<Icon name="search" :size="15" />
 				<span class="kbd">⌘K</span>
 			</button>
-			<Button v-if="showSettings" variant="ghost" theme="gray" title="Project settings" @click="emit('settings')">
-				<template #icon><Icon name="settings" :size="16" /></template>
-			</Button>
 			<Button variant="solid" theme="gray" @click="emit('new')">
 				<template #prefix><Icon name="plus" :size="15" /></template>
 				New task

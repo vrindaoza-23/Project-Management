@@ -1,6 +1,5 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted, reactive } from 'vue'
-import { useRouter } from 'vue-router'
 import { createResource } from 'frappe-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import ViewControls from '@/components/ViewControls.vue'
@@ -17,7 +16,6 @@ import DocsView from './DocsView.vue'
 import TimesheetsView from './TimesheetsView.vue'
 import FinanceView from './FinanceView.vue'
 import ChangeLogView from './ChangeLogView.vue'
-import ProjectSettingsDialog from '@/components/ProjectSettingsDialog.vue'
 import { store, projectByKey } from '@/data/store'
 import { openPalette, openDrawer, openCreate, ui } from '@/data/ui'
 import { onRealtime, joinProjectRoom } from '@/socket'
@@ -25,15 +23,8 @@ import { tweaks } from '@/composables/useTweaks'
 import { exportIssuesCsv } from '@/utils/csv'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
-const router = useRouter()
-
-function onProjectDeleted() {
-	settingsOpen.value = false
-	router.push('/')
-}
 
 const activeTab = ref('summary')
-const settingsOpen = ref(false)
 const presence = reactive({}) // issue name -> [user ids]
 const integration = createResource({ url: 'projex.api.integration_status', auto: true })
 // Views are five ways to look at one thing (Tasks) — they live inside the Tasks
@@ -232,11 +223,9 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			:more-items="visibleMoreItems"
 			:more-active="moreActive"
 			:presence="headerPresence"
-			:show-settings="true"
 			@surface="selectSurface"
 			@search="openPalette"
 			@new="openCreate(projectKey)"
-			@settings="settingsOpen = true"
 		/>
 		<ViewControls
 			v-if="activeSurface === 'tasks'"
@@ -318,13 +307,6 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			<ChangeLogView v-else-if="activeTab === 'activity'" :project-key="projectKey" @open="openDrawer" />
 			<GanttView v-else :project-key="projectKey" @open="openDrawer" />
 		</div>
-		<ProjectSettingsDialog
-			:open="settingsOpen"
-			:project="projectKey"
-			@close="settingsOpen = false"
-			@changed="board.reload()"
-			@deleted="onProjectDeleted"
-		/>
 	</div>
 </template>
 

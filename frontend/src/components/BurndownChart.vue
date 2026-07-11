@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { createResource } from 'frappe-ui'
+import { createResource, AxisChart } from 'frappe-ui'
 import SelectField from './SelectField.vue'
+import { cssColor } from '@/utils/chartColors'
 
 const props = defineProps({ projectKey: { type: String, required: true } })
 
@@ -26,26 +27,18 @@ const data = computed(() => burndown.data || {})
 const series = computed(() => data.value.series || [])
 const total = computed(() => data.value.total_points || 0)
 
-// Geometry (viewBox 0..100 x, 0..100 y; y inverted so 0 pts = bottom).
-const W = 100
-const H = 100
-function x(i) {
-	const n = series.value.length
-	return n <= 1 ? 0 : (i / (n - 1)) * W
-}
-function y(v) {
-	if (total.value <= 0) return H
-	return H - (v / total.value) * H
-}
-const idealPath = computed(() => {
-	if (!series.value.length) return ''
-	return series.value.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(2)},${y(p.ideal).toFixed(2)}`).join(' ')
-})
-const actualPath = computed(() => {
-	const pts = series.value.filter((p) => p.remaining !== null && p.remaining !== undefined)
-	if (!pts.length) return ''
-	return pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(series.value.indexOf(p)).toFixed(2)},${y(p.remaining).toFixed(2)}`).join(' ')
-})
+const chart = computed(() => ({
+	data: series.value.map((p) => ({ date: p.date, ideal: p.ideal, remaining: p.remaining })),
+	title: '',
+	colors: ['var(--gray-400)', 'var(--blue-500)'].map(cssColor),
+	xAxis: { key: 'date', type: 'time', timeGrain: 'day' },
+	yAxis: {},
+	series: [
+		{ name: 'ideal', type: 'line', lineType: 'dashed', lineWidth: 2 },
+		{ name: 'remaining', type: 'line', lineWidth: 2 },
+	],
+}))
+
 const lastRemaining = computed(() => {
 	const pts = series.value.filter((p) => p.remaining !== null && p.remaining !== undefined)
 	return pts.length ? pts[pts.length - 1].remaining : null
@@ -58,7 +51,7 @@ function fmtDate(iso) {
 <template>
 	<div class="pjx-burn">
 		<div class="pjx-burn__top">
-			<div class="pjx-panel__h" style="margin: 0">Sprint burndown</div>
+			<div class="pjx-card__h" style="margin: 0">Sprint burndown</div>
 			<div style="width: 180px">
 				<SelectField
 					:options="cycleOptions"
@@ -74,15 +67,11 @@ function fmtDate(iso) {
 		</div>
 		<div v-else-if="!series.length" class="pjx-burn__empty">No sprint data yet.</div>
 		<template v-else>
-			<svg class="pjx-burn__svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-				<line x1="0" y1="0" x2="0" y2="100" class="pjx-burn__axis" />
-				<line x1="0" y1="100" x2="100" y2="100" class="pjx-burn__axis" />
-				<path :d="idealPath" class="pjx-burn__ideal" />
-				<path :d="actualPath" class="pjx-burn__actual" />
-			</svg>
-			<div class="pjx-burn__legend">
-				<span><i class="dot ideal" /> Ideal</span>
-				<span><i class="dot actual" /> Remaining ({{ lastRemaining ?? '—' }} of {{ total }} pts)</span>
+			<div class="pjx-burn__chart">
+				<AxisChart :config="chart" />
+			</div>
+			<div class="pjx-burn__cap">
+				{{ lastRemaining ?? '—' }} of {{ total }} pts remaining
 				<span class="pjx-dim" style="margin-left: auto">{{ fmtDate(data.start_date) }} → {{ fmtDate(data.end_date) }}</span>
 			</div>
 		</template>
@@ -90,14 +79,9 @@ function fmtDate(iso) {
 </template>
 
 <style scoped>
-.pjx-burn__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
-.pjx-burn__svg { width: 100%; height: 200px; overflow: visible; }
-.pjx-burn__axis { stroke: var(--outline-gray-2); stroke-width: 0.4; vector-effect: non-scaling-stroke; }
-.pjx-burn__ideal { fill: none; stroke: var(--ink-gray-4); stroke-width: 1.4; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
-.pjx-burn__actual { fill: none; stroke: var(--blue-500); stroke-width: 2; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
-.pjx-burn__legend { display: flex; align-items: center; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--ink-gray-6); }
-.pjx-burn__legend .dot { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
-.pjx-burn__legend .dot.ideal { background: var(--ink-gray-4); }
-.pjx-burn__legend .dot.actual { background: var(--blue-500); }
+.pjx-burn__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 12px; }
+.pjx-card__h { font-size: 14px; font-weight: 500; color: var(--ink-gray-8); }
+.pjx-burn__chart { height: 260px; }
+.pjx-burn__cap { display: flex; align-items: center; margin-top: 2px; font-size: 12px; color: var(--ink-gray-6); }
 .pjx-burn__empty { padding: 24px 8px; font-size: 13px; color: var(--ink-gray-4); }
 </style>

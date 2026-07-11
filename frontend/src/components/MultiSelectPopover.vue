@@ -9,7 +9,7 @@ const props = defineProps({
 	placeholder: { type: String, default: 'Select…' },
 	bare: { type: Boolean, default: false }, // borderless (inline rail) styling
 })
-const emit = defineEmits(['update:modelValue', 'change'])
+const emit = defineEmits(['update:modelValue', 'change', 'close'])
 
 const open = ref(false)
 const q = ref('')
@@ -58,8 +58,17 @@ async function toggleOpen() {
 		await nextTick()
 		position()
 		searchInput.value?.focus()
+	} else {
+		emit('close')
 	}
 }
+
+// Programmatic open — lets a parent add a filter chip and immediately pop its
+// editor (e.g. the "+ Filter" menu).
+async function openPanel() {
+	if (!open.value) await toggleOpen()
+}
+defineExpose({ openPanel })
 
 function toggle(v) {
 	let next
@@ -76,7 +85,10 @@ function toggle(v) {
 function onPointerDown(e) {
 	if (root.value?.contains(e.target)) return
 	if (panel.value?.contains(e.target)) return
-	open.value = false
+	if (open.value) {
+		open.value = false
+		emit('close')
+	}
 }
 function reposition() {
 	if (open.value) position()

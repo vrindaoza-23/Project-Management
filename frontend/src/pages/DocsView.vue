@@ -116,15 +116,18 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 		<!-- list pane -->
 		<div class="pjx-docs__list">
 			<div class="pjx-docs__lhead">
+				<FormControl
+					v-model="filter"
+					type="select"
+					size="sm"
+					class="pjx-docs__filter"
+					:options="['All', ...DOC_TYPES].map((t) => ({ value: t, label: t === 'All' ? 'All types' : t }))"
+				/>
 				<Dropdown :options="newOptions">
-					<Button variant="solid" theme="gray" size="sm" style="width: 100%">
-						<template #prefix><Icon name="plus" :size="14" /></template>New document
+					<Button variant="solid" theme="gray" size="sm" title="New document">
+						<template #prefix><Icon name="plus" :size="14" /></template>New
 					</Button>
 				</Dropdown>
-			</div>
-			<div class="pjx-docs__filters">
-				<button class="pjx-chip" :class="{ on: filter === 'All' }" @click="filter = 'All'">All</button>
-				<button v-for="t in DOC_TYPES" :key="t" class="pjx-chip" :class="{ on: filter === t }" @click="filter = t">{{ t }}</button>
 			</div>
 			<div class="pjx-docs__items">
 				<button
@@ -214,10 +217,8 @@ const newOptions = DOC_TYPES.map((t) => ({ label: t, onClick: () => newDoc(t) })
 <style scoped>
 .pjx-docs { display: grid; grid-template-columns: 280px 1fr; height: 100%; overflow: hidden; }
 .pjx-docs__list { border-right: 1px solid var(--outline-gray-1); display: flex; flex-direction: column; min-height: 0; }
-.pjx-docs__lhead { padding: 12px; }
-.pjx-docs__filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 10px; }
-.pjx-chip { border: 1px solid var(--outline-gray-2); background: transparent; border-radius: 9999px; padding: 2px 10px; font-size: 11px; color: var(--ink-gray-6); cursor: pointer; }
-.pjx-chip.on { background: var(--surface-gray-3); color: var(--ink-gray-9); border-color: transparent; }
+.pjx-docs__lhead { display: flex; align-items: center; gap: 8px; padding: 12px; }
+.pjx-docs__filter { flex: 1; min-width: 0; }
 .pjx-docs__items { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
 .pjx-docitem { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; padding: 9px 8px; border-radius: 8px; cursor: pointer; }
 .pjx-docitem:hover { background: var(--surface-gray-1); }

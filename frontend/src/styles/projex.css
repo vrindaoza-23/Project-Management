@@ -87,8 +87,10 @@ body { background: var(--surface-white); }
 
 /* Portaled menus/popovers (reka-ui) ship with z-index auto, which loses to the
    sticky list header (z-10) even though they're portaled to <body>. Reka copies
-   the content's computed z-index onto this wrapper inline, hence !important. */
-[data-reka-popper-content-wrapper] { z-index: 20 !important; }
+   the content's computed z-index onto this wrapper inline, hence !important.
+   Must clear the drawer (160), command palette (200) and dialog overlay (210)
+   too, since Selects/Dropdowns open from inside those — hence --z-popover, not 20. */
+[data-reka-popper-content-wrapper] { z-index: var(--z-popover) !important; }
 
 /* avatar stack */
 .pjx-avstack { display: inline-flex; align-items: center; }
