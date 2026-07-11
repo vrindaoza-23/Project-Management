@@ -14,17 +14,14 @@
   background: var(--surface-white);
 }
 
-/* layout */
-.flex{display:flex} .col{flex-direction:column} .items-center{align-items:center}
-.items-start{align-items:flex-start} .items-end{align-items:flex-end}
-.justify-between{justify-content:space-between} .justify-center{justify-content:center}
-.justify-end{justify-content:flex-end}
-.flex-1{flex:1} .flex-none{flex:none} .shrink-0{flex-shrink:0} .wrap{flex-wrap:wrap}
-.grow{flex-grow:1} .relative{position:relative} .absolute{position:absolute}
-.w-full{width:100%} .h-full{height:100%} .min-w-0{min-width:0}
-.overflow-auto{overflow:auto} .overflow-hidden{overflow:hidden} .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.text-center{text-align:center} .text-right{text-align:right}
-.grid{display:grid}
+/* layout — only classes Tailwind doesn't provide (or that intentionally
+   differ) may live here. Never redefine a Tailwind utility with an identical
+   body: the minifier dedupes identical rules keeping the LAST copy, which
+   pulls the utility out of Tailwind's base-before-variants order and silently
+   breaks its responsive variants (found via `w-full` beating `sm:w-[220px]`). */
+.col{flex-direction:column}
+.flex-1{flex:1} /* differs from Tailwind's `flex:1 1 0%` on purpose */
+.wrap{flex-wrap:wrap}
 .fu-app .grid > *{min-width:0}
 
 /* gaps */
