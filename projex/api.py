@@ -1244,7 +1244,18 @@ def get_issue(name):
 		"comments": comments,
 		"links": links,
 		"attachments": attachments,
+		"github_links": _github_links_safe(name),
 	}
+
+
+def _github_links_safe(issue):
+	"""GitHub links for the drawer; never let the integration break issue load."""
+	try:
+		from projex import github
+
+		return github._links(issue)
+	except Exception:
+		return []
 
 
 # Fields a client is allowed to mutate via update_issue/create_issue.
@@ -2249,10 +2260,13 @@ def _erpnext_installed():
 @frappe.whitelist()
 def integration_status():
 	"""Tell the SPA which integrations are live so it can hide unavailable UI."""
+	from projex import github
+
 	return {
 		"erpnext": _erpnext_installed(),
 		"timesheet": _erpnext_installed(),
 		"ai": ai.is_ai_enabled(),
+		"github": github.is_enabled(),
 	}
 
 

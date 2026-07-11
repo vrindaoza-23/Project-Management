@@ -10,6 +10,7 @@ import SelectField from './SelectField.vue'
 import LogTimeDialog from './LogTimeDialog.vue'
 import { userName, store } from '@/data/store'
 import { relativeTime, dueLabel, isToday, ageChip } from '@/utils/format'
+import { notify } from '@/utils/feedback'
 
 const REACTIONS = ['👍', '💡', '🎉', '👀']
 
@@ -298,6 +299,60 @@ function onCommentEnter(e) {
 
 const attachments = computed(() => detail.data?.attachments || [])
 const links = computed(() => detail.data?.links || [])
+
+const githubLinks = computed(() => detail.data?.github_links || [])
+const githubEnabled = computed(() => !!integration.data?.github)
+
+// Suggested git branch: <issue-id>-<slugged title>, e.g. QAP-4-fix-login. The
+// leading issue id is the magic word the webhook parses back to this issue.
+const branchName = computed(() => {
+	const id = issue.value?.issue_id
+	if (!id) return ''
+	const slug = (issue.value?.title || '')
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, '-')
+		.replace(/^-+|-+$/g, '')
+		.slice(0, 40)
+	return slug ? `${id}-${slug}` : id
+})
+
+const tabOptions = computed(() => {
+	const opts = [
+		{ label: 'Comments', value: 'comments' },
+		{ label: 'Activity', value: 'activity' },
+		{ label: 'Files', value: 'files' },
+		{ label: 'Linked work', value: 'links' },
+	]
+	if (githubEnabled.value) opts.push({ label: 'Development', value: 'dev' })
+	return opts
+})
+
+const GH_STATE = {
+	open: { label: 'Open', tone: 'green' },
+	draft: { label: 'Draft', tone: 'gray' },
+	merged: { label: 'Merged', tone: 'purple' },
+	closed: { label: 'Closed', tone: 'red' },
+}
+
+function copyText(text) {
+	if (!text) return
+	navigator.clipboard?.writeText(text)
+	notify.success('Copied')
+}
+
+const ghRefresh = createResource({ url: 'projex.github.refresh_links' })
+function refreshGithub() {
+	ghRefresh.submit({ issue: issue.value.name }).then((rows) => {
+		if (detail.data) detail.data.github_links = rows
+		notify.success('Refreshed from GitHub')
+	})
+}
+const ghRemove = createResource({ url: 'projex.github.remove_link' })
+function removeGithubLink(name) {
+	ghRemove.submit({ name }).then(() => {
+		if (detail.data) detail.data.github_links = githubLinks.value.filter((l) => l.name !== name)
+	})
+}
 const linkTargetOptions = computed(() =>
 	(projectIssues.data || [])
 		.filter((i) => i.name !== issue.value?.name)
@@ -478,15 +533,7 @@ async function removeLink(name) {
 						/>
 					</div>
 
-					<TabButtons
-						v-model="tab"
-						:options="[
-							{ label: 'Comments', value: 'comments' },
-							{ label: 'Activity', value: 'activity' },
-							{ label: 'Files', value: 'files' },
-							{ label: 'Linked work', value: 'links' },
-						]"
-					/>
+					<TabButtons v-model="tab" :options="tabOptions" />
 
 					<div v-if="tab === 'comments'" class="pjx-comments">
 						<div v-for="c in comments" :key="c.name" class="pjx-comment">
@@ -573,7 +620,7 @@ async function removeLink(name) {
 						<div v-if="!attachments.length" class="pjx-inbox__empty">No files attached yet.</div>
 					</div>
 
-					<div v-else class="pjx-linked">
+					<div v-else-if="tab === 'links'" class="pjx-linked">
 						<div v-for="l in links" :key="l.name" class="pjx-linked__row">
 							<span class="pjx-linked__rel">{{ l.link_type }}</span>
 							<span class="pjx-id">{{ l.target }}</span>
@@ -599,6 +646,46 @@ async function removeLink(name) {
 								/>
 							</div>
 							<Button variant="subtle" theme="gray" :disabled="!newLinkTarget" @click="addLink">Link</Button>
+						</div>
+					</div>
+
+					<div v-else-if="tab === 'dev'" class="pjx-dev">
+						<div class="pjx-dev__branch">
+							<div class="flex col g-1" style="min-width: 0; flex: 1">
+								<span class="t-xs ink-5">Branch name</span>
+								<code class="pjx-dev__code">{{ branchName }}</code>
+							</div>
+							<Button variant="subtle" @click="copyText(branchName)">
+								<template #prefix><Icon name="copy" :size="14" /></template>Copy
+							</Button>
+						</div>
+
+						<div v-if="githubLinks.length" class="pjx-dev__head">
+							<span class="t-xs ink-5">{{ githubLinks.length }} linked</span>
+							<Button variant="ghost" :loading="ghRefresh.loading" @click="refreshGithub">
+								<template #prefix><Icon name="rotate-ccw" :size="13" /></template>Refresh
+							</Button>
+						</div>
+
+						<div v-for="l in githubLinks" :key="l.name" class="pjx-dev__row">
+							<a class="pjx-dev__link" :href="l.url" target="_blank" rel="noopener">
+								<Icon :name="l.kind === 'Commit' ? 'git-pull-request' : 'github'" :size="15" class="ink-6 shrink-0" />
+								<span class="pjx-dev__title">
+									<span class="pjx-dev__name">{{ l.repository }}<template v-if="l.number">#{{ l.number }}</template></span>
+									<span class="ink-5">{{ l.title }}</span>
+								</span>
+							</a>
+							<span v-if="l.ci_status" class="pjx-dev__ci" :class="`is-${l.ci_status}`" :title="`CI ${l.ci_status}`" />
+							<span class="pjx-dev__badge" :class="`is-${(GH_STATE[l.state] || {}).tone}`">
+								{{ (GH_STATE[l.state] || {}).label || l.state }}
+							</span>
+							<button class="pjx-dev__x" title="Unlink" @click="removeGithubLink(l.name)">
+								<Icon name="x" :size="13" />
+							</button>
+						</div>
+
+						<div v-if="!githubLinks.length" class="pjx-inbox__empty">
+							No pull requests yet. Include <strong>{{ issue?.issue_id }}</strong> in a branch or PR to link it here.
 						</div>
 					</div>
 				</div>
@@ -891,5 +978,124 @@ async function removeLink(name) {
 	margin-top: 12px;
 	padding-top: 12px;
 	border-top: 1px solid var(--outline-gray-1);
+}
+
+/* Development tab: branch helper + PR links */
+.pjx-dev {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+.pjx-dev__branch {
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
+	padding-bottom: 4px;
+}
+.pjx-dev__code {
+	overflow-x: auto;
+	white-space: nowrap;
+	padding: 6px 8px;
+	border-radius: 6px;
+	background: var(--surface-gray-2);
+	color: var(--ink-gray-8);
+	font-size: 12px;
+}
+.pjx-dev__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 2px;
+}
+.pjx-dev__row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 10px;
+	border: 1px solid var(--outline-gray-1);
+	border-radius: 8px;
+}
+.pjx-dev__row:hover {
+	background: var(--surface-gray-1);
+}
+.pjx-dev__link {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+	flex: 1;
+	text-decoration: none;
+	color: inherit;
+}
+.pjx-dev__x {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	border: none;
+	border-radius: 6px;
+	background: none;
+	color: var(--ink-gray-5);
+	cursor: pointer;
+	flex-shrink: 0;
+}
+.pjx-dev__x:hover {
+	background: var(--surface-gray-3);
+	color: var(--ink-gray-7);
+}
+.pjx-dev__title {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+	flex: 1;
+}
+.pjx-dev__name {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--ink-gray-8);
+}
+.pjx-dev__title .ink-5 {
+	font-size: 12px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.pjx-dev__ci {
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	flex-shrink: 0;
+	background: var(--ink-gray-4);
+}
+.pjx-dev__ci.is-success {
+	background: var(--green-500);
+}
+.pjx-dev__ci.is-failure {
+	background: var(--red-500, #e03636);
+}
+.pjx-dev__ci.is-pending {
+	background: var(--amber-500, #efad3a);
+}
+.pjx-dev__badge {
+	flex-shrink: 0;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 500;
+	background: var(--surface-gray-2);
+	color: var(--ink-gray-6);
+}
+.pjx-dev__badge.is-green {
+	background: var(--surface-green-1);
+	color: var(--ink-green-3);
+}
+.pjx-dev__badge.is-purple {
+	background: color-mix(in srgb, var(--purple-500, #7c5cff) 14%, transparent);
+	color: var(--purple-600, #6c4ce0);
+}
+.pjx-dev__badge.is-red {
+	background: color-mix(in srgb, var(--red-500, #e03636) 12%, transparent);
+	color: var(--red-600, #c62d2d);
 }
 </style>

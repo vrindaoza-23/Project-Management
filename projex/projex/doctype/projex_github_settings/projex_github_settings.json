@@ -1,0 +1,176 @@
+{
+ "actions": [],
+ "creation": "2026-07-11 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "connection_section",
+  "enabled",
+  "account",
+  "column_break_conn",
+  "webhook_secret",
+  "access_token",
+  "app_section",
+  "app_id",
+  "app_slug",
+  "installation_id",
+  "column_break_app",
+  "client_id",
+  "client_secret",
+  "private_key",
+  "behaviour_section",
+  "move_on_open",
+  "move_on_merge",
+  "close_on_keyword",
+  "post_comment",
+  "repos_section",
+  "repos"
+ ],
+ "fields": [
+  {
+   "fieldname": "connection_section",
+   "fieldtype": "Section Break",
+   "label": "Connection"
+  },
+  {
+   "default": "0",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "description": "The GitHub organisation or user login these repositories live under.",
+   "fieldname": "account",
+   "fieldtype": "Data",
+   "label": "GitHub Account / Org"
+  },
+  {
+   "fieldname": "column_break_conn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Shared secret configured on the GitHub webhook; used to verify payload signatures.",
+   "fieldname": "webhook_secret",
+   "fieldtype": "Password",
+   "label": "Webhook Secret"
+  },
+  {
+   "description": "Personal access token or App installation token used to post issue comments and read CI status. Optional — linking still works without it.",
+   "fieldname": "access_token",
+   "fieldtype": "Password",
+   "label": "Access Token"
+  },
+  {
+   "collapsible": 1,
+   "description": "Populated automatically when you connect a GitHub App. Prefer this over a personal access token.",
+   "fieldname": "app_section",
+   "fieldtype": "Section Break",
+   "label": "GitHub App"
+  },
+  {
+   "fieldname": "app_id",
+   "fieldtype": "Data",
+   "label": "App ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_slug",
+   "fieldtype": "Data",
+   "label": "App Slug",
+   "read_only": 1
+  },
+  {
+   "description": "Set once the App is installed on an account/org.",
+   "fieldname": "installation_id",
+   "fieldtype": "Data",
+   "label": "Installation ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_app",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "client_id",
+   "fieldtype": "Data",
+   "label": "Client ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "client_secret",
+   "fieldtype": "Password",
+   "label": "Client Secret",
+   "read_only": 1
+  },
+  {
+   "description": "App private key (PEM), used to mint installation tokens. Stored encrypted.",
+   "fieldname": "private_key",
+   "fieldtype": "Password",
+   "label": "Private Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "behaviour_section",
+   "fieldtype": "Section Break",
+   "label": "Automation"
+  },
+  {
+   "default": "1",
+   "fieldname": "move_on_open",
+   "fieldtype": "Check",
+   "label": "Move issue to In Progress when a PR opens"
+  },
+  {
+   "default": "1",
+   "fieldname": "move_on_merge",
+   "fieldtype": "Check",
+   "label": "Move issue to Done when a PR merges"
+  },
+  {
+   "default": "1",
+   "description": "Only move to Done on merge when the PR says \"closes / fixes / resolves\" the issue. Otherwise every linked merge closes it.",
+   "fieldname": "close_on_keyword",
+   "fieldtype": "Check",
+   "label": "Require a closing keyword to mark Done"
+  },
+  {
+   "default": "1",
+   "fieldname": "post_comment",
+   "fieldtype": "Check",
+   "label": "Comment on the issue when a PR links it"
+  },
+  {
+   "fieldname": "repos_section",
+   "fieldtype": "Section Break",
+   "label": "Repositories"
+  },
+  {
+   "description": "Map each repository (owner/name) to the Projex project its issues belong to.",
+   "fieldname": "repos",
+   "fieldtype": "Table",
+   "label": "Repositories",
+   "options": "Projex GitHub Repo"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-11 00:00:00",
+ "module": "Projex",
+ "name": "Projex GitHub Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

@@ -1,0 +1,137 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "creation": "2026-07-11 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "issue",
+  "kind",
+  "repository",
+  "number",
+  "column_break_1",
+  "state",
+  "ci_status",
+  "merged",
+  "content_section",
+  "title",
+  "url",
+  "branch",
+  "column_break_2",
+  "author",
+  "author_avatar",
+  "last_synced"
+ ],
+ "fields": [
+  {
+   "fieldname": "issue",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Issue",
+   "options": "Projex Issue",
+   "reqd": 1
+  },
+  {
+   "default": "Pull Request",
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Kind",
+   "options": "Pull Request\nCommit\nBranch"
+  },
+  {
+   "fieldname": "repository",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Repository"
+  },
+  {
+   "fieldname": "number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "open",
+   "fieldname": "state",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "State",
+   "options": "open\ndraft\nmerged\nclosed"
+  },
+  {
+   "fieldname": "ci_status",
+   "fieldtype": "Select",
+   "label": "CI Status",
+   "options": "\npending\nsuccess\nfailure"
+  },
+  {
+   "default": "0",
+   "fieldname": "merged",
+   "fieldtype": "Check",
+   "label": "Merged"
+  },
+  {
+   "fieldname": "content_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "url",
+   "fieldtype": "Data",
+   "label": "URL"
+  },
+  {
+   "fieldname": "branch",
+   "fieldtype": "Data",
+   "label": "Branch"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "author",
+   "fieldtype": "Data",
+   "label": "Author"
+  },
+  {
+   "fieldname": "author_avatar",
+   "fieldtype": "Data",
+   "label": "Author Avatar"
+  },
+  {
+   "fieldname": "last_synced",
+   "fieldtype": "Datetime",
+   "label": "Last Synced"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-11 00:00:00",
+ "module": "Projex",
+ "name": "Projex GitHub Link",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

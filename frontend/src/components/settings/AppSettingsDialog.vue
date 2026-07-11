@@ -15,6 +15,7 @@ import Icon from '../Icon.vue'
 import SelectField from '../SelectField.vue'
 import ProfileSettings from './ProfileSettings.vue'
 import PreferenceSettings from './PreferenceSettings.vue'
+import IntegrationsSettings from './IntegrationsSettings.vue'
 import ProjectGeneralSettings from './ProjectGeneralSettings.vue'
 import ProjectMembersSettings from './ProjectMembersSettings.vue'
 import ProjectLabelsSettings from './ProjectLabelsSettings.vue'
@@ -123,6 +124,15 @@ function onWorkspaceGone(key) {
 				</SettingsNavItem>
 			</SettingsNavGroup>
 
+			<SettingsNavGroup label="Integrations">
+				<SettingsNavItem value="integrations">
+					<template #prefix>
+						<Icon name="plug" :size="15" class="shrink-0 text-ink-gray-6" />
+					</template>
+					Integrations
+				</SettingsNavItem>
+			</SettingsNavGroup>
+
 			<SettingsNavGroup v-if="workspaces.length" label="Workspace settings">
 				<div class="px-1 pb-1">
 					<SelectField
@@ -161,6 +171,7 @@ function onWorkspaceGone(key) {
 		<SettingsContent>
 			<SettingsPanel value="profile"><ProfileSettings /></SettingsPanel>
 			<SettingsPanel value="preferences"><PreferenceSettings /></SettingsPanel>
+			<SettingsPanel value="integrations"><IntegrationsSettings v-if="tab === 'integrations'" /></SettingsPanel>
 
 			<SettingsPanel v-for="s in WORKSPACE_SECTIONS" :key="s.value" :value="s.value">
 				<component
