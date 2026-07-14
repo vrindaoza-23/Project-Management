@@ -1,9 +1,8 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import {
 	ListView,
 	ListHeader,
-	ListGroupHeader,
 	ListRow,
 	ListRows,
 	ListEmptyState,
@@ -79,6 +78,14 @@ const groupedRows = computed(() =>
 	groups.value.map((g) => ({ group: g.label, key: g.key, status: g.status, priority: g.priority, rows: g.items })),
 )
 
+// Collapse state lives here (keyed by group key) rather than on the row objects:
+// groupedRows is a computed that rebuilds fresh objects, so a `collapsed` flag
+// mutated on them wouldn't survive or stay reactive.
+const collapsed = reactive({})
+function toggleGroup(key) {
+	collapsed[key] = !collapsed[key]
+}
+
 // Context the group's inline add-row stamps onto new tasks.
 function addFields(group) {
 	if (props.groupBy === 'status' && group.status) return { status: group.status.name }
@@ -125,15 +132,6 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 			:options="listOptions"
 			@update:selections="onSelections"
 		>
-			<template #group-header="{ group }">
-				<span class="pjx-grouphead">
-					<StatusDot v-if="group.status" :status="group.status" />
-					<PriorityBars v-else-if="group.priority" :priority="group.priority" />
-					<span class="pjx-grouphead__name">{{ group.group }}</span>
-					<span class="pjx-grouphead__count">{{ group.rows.length }}</span>
-				</span>
-			</template>
-
 			<template #cell="{ column, row }">
 				<div class="pjx-tc" :class="{ 'pjx-tc--r': column.align === 'right' }">
 					<template v-if="column.key === 'title'">
@@ -176,8 +174,14 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 					     end in an inline add-row and get roomier spacing. -->
 					<div v-if="showGroupedRows">
 						<div v-for="g in groupedRows" :key="g.key">
-							<ListGroupHeader :group="g" />
-							<div v-if="!g.collapsed" class="pjx-grouprows">
+							<button class="pjx-ghead" :aria-expanded="!collapsed[g.key]" @click="toggleGroup(g.key)">
+								<Icon name="chevron-down" :size="16" class="pjx-ghead__chev" :class="{ 'is-collapsed': collapsed[g.key] }" />
+								<StatusDot v-if="g.status" :status="g.status" />
+								<PriorityBars v-else-if="g.priority" :priority="g.priority" />
+								<span class="pjx-grouphead__name">{{ g.group }}</span>
+								<span class="pjx-grouphead__count">{{ g.rows.length }}</span>
+							</button>
+							<div v-if="!collapsed[g.key]" class="pjx-grouprows">
 								<ListRow v-for="row in g.rows" :key="row.name" :row="row" />
 								<GroupAddRow :project-key="projectKey" :fields="addFields(g)" @created="emit('created')" />
 							</div>
@@ -226,7 +230,24 @@ const priorityActions = PRIORITY_ORDER.map((p) => ({ label: p, onClick: () => bu
 .pjx-tc--r { justify-content: flex-end; }
 /* Roomier than ListGroupRows' stock mt-2/mb-5 so groups read as distinct bands. */
 .pjx-grouprows { margin: 4px 0 28px; }
-.pjx-grouphead { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.pjx-ghead {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	padding: 6px 4px;
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	text-align: left;
+	border-bottom: 1px solid var(--outline-gray-1);
+}
+.pjx-ghead__chev {
+	color: var(--ink-gray-5);
+	transition: transform 0.15s ease;
+}
+.pjx-ghead__chev.is-collapsed { transform: rotate(-90deg); }
 .pjx-grouphead__name { font-weight: 600; color: var(--ink-gray-8); }
 .pjx-grouphead__count { color: var(--ink-gray-5); font-variant-numeric: tabular-nums; }
 .pjx-bulkacts { display: flex; align-items: center; gap: 4px; }
