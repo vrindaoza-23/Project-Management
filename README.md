@@ -1,5 +1,8 @@
 # Projex
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Built on Frappe](https://img.shields.io/badge/built%20on-Frappe-0089ff.svg)](https://frappeframework.com)
+
 A Linear-grade, keyboard-first project-management app built on the
 [Frappe Framework](https://frappeframework.com), with a Vue 3 + [frappe-ui](https://ui.frappe.io)
 SPA and optional, native **ERPNext** integration.
