@@ -62,3 +62,7 @@ projex/www/projex.html
 .auth.json
 playwright-report/
 test-results/
+.playwright-mcp/
+
+# Local screenshot / QA scratch captures (kept out of the repo)
+/*.png

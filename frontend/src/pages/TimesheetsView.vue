@@ -1,7 +1,8 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { createResource, Button, Badge, NumberChart, AxisChart } from 'frappe-ui'
+import { createResource, Button, Badge, AxisChart } from 'frappe-ui'
 import Icon from '@/components/Icon.vue'
+import KpiStrip from '@/components/KpiStrip.vue'
 import TimesheetLogDialog from '@/components/TimesheetLogDialog.vue'
 import { openDrawer } from '@/data/ui'
 import { dueLabel } from '@/utils/format'
@@ -23,15 +24,18 @@ const logOpen = ref(false)
 const auto = computed(() => ts.data?.auto || { per_status: [], avg_lead_days: 0, avg_cycle_days: 0, completed: 0 })
 const logged = computed(() => ts.data?.logged || { total_hours: 0, billable_hours: 0, by_user: [], by_issue: [], entries: [] })
 
-const flowStats = computed(() => [
-	{ title: 'Avg lead time (created → done)', value: auto.value.avg_lead_days, suffix: 'd' },
-	{ title: 'Avg cycle time (started → done)', value: auto.value.avg_cycle_days, suffix: 'd' },
-	{ title: 'Completed tasks measured', value: auto.value.completed },
+// Lead/cycle time only mean something once tasks have completed; show an em
+// dash rather than a misleading "0d" when nothing has been measured yet.
+const measured = computed(() => (auto.value.completed || 0) > 0)
+const flowKpis = computed(() => [
+	{ label: 'Avg lead time', value: measured.value ? auto.value.avg_lead_days : '—', suffix: measured.value ? 'd' : '' },
+	{ label: 'Avg cycle time', value: measured.value ? auto.value.avg_cycle_days : '—', suffix: measured.value ? 'd' : '' },
+	{ label: 'Completed measured', value: auto.value.completed },
 ])
-const loggedStats = computed(() => [
-	{ title: 'Total logged', value: logged.value.total_hours, suffix: 'h' },
-	{ title: 'Billable', value: logged.value.billable_hours, suffix: 'h' },
-	{ title: 'People logging', value: logged.value.by_user.length },
+const loggedKpis = computed(() => [
+	{ label: 'Total logged', value: logged.value.total_hours, suffix: 'h' },
+	{ label: 'Billable', value: logged.value.billable_hours, suffix: 'h' },
+	{ label: 'People logging', value: logged.value.by_user.length },
 ])
 
 const statusChart = computed(() => ({
@@ -66,11 +70,7 @@ async function removeEntry(e) {
 <template>
 	<div class="pjx-ts">
 		<!-- Flow time: native, always available -->
-		<div class="pjx-cards">
-			<div v-for="s in flowStats" :key="s.title" class="pjx-card">
-				<NumberChart :config="s" />
-			</div>
-		</div>
+		<KpiStrip :items="flowKpis" class="pjx-ts__flow" />
 
 		<div class="pjx-card" :class="auto.per_status.length ? 'pjx-card--chart' : 'pjx-card--list'">
 			<AxisChart v-if="auto.per_status.length" :config="statusChart" />
@@ -88,9 +88,7 @@ async function removeEntry(e) {
 					<template #prefix><Icon name="plus" :size="13" /></template>Log time
 				</Button>
 			</div>
-			<div class="pjx-ts__stats">
-				<NumberChart v-for="s in loggedStats" :key="s.title" :config="s" />
-			</div>
+			<KpiStrip :items="loggedKpis" class="pjx-ts__logged" />
 			<div class="pjx-ts__grid">
 				<div>
 					<div class="pjx-ts__h">Hours by person</div>
@@ -127,20 +125,16 @@ async function removeEntry(e) {
 </template>
 
 <style scoped>
-.pjx-ts { padding: 16px; overflow-y: auto; }
-.pjx-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.pjx-card { border: 1px solid var(--outline-gray-1); border-radius: 8px; background: var(--surface-base); overflow: hidden; margin-bottom: 12px; }
-.pjx-cards .pjx-card { margin-bottom: 0; }
+.pjx-ts { padding: 16px; overflow-y: auto; letter-spacing: 0.02em; }
+.pjx-ts__flow { margin-bottom: 16px; }
+.pjx-ts__logged { margin: 4px 0 12px; }
+.pjx-card { border: 1px solid var(--outline-gray-1); border-radius: 10px; background: var(--surface-white); overflow: hidden; margin-bottom: 12px; }
 .pjx-card--chart { height: 300px; }
-.pjx-card--list { padding: 14px 16px; }
-/* Match the ECharts title styles (getTitleOptions) so hand-built panels and
-   chart panels read as one family. */
-.pjx-card__h { font-size: 14px; font-weight: 500; color: var(--ink-gray-8); margin-bottom: 10px; }
+.pjx-card--list { padding: 16px 18px; }
+.pjx-card__h { font-size: 15px; font-weight: 600; color: var(--ink-gray-8); letter-spacing: 0.005em; margin-bottom: 12px; }
 .pjx-card__h--row { display: flex; align-items: center; justify-content: space-between; }
 .pjx-card__sub { font-size: 13px; font-weight: 400; color: var(--ink-gray-6); margin-inline-start: 4px; }
 .pjx-card__empty { font-size: 13px; color: var(--ink-gray-5); }
-/* NumberChart brings its own px-6 pt-5 padding; pull it back to the card edge */
-.pjx-ts__stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); margin: 0 -24px 8px; }
 .pjx-mrow { display: flex; align-items: center; gap: 10px; font-size: 13px; padding: 5px 0; color: var(--ink-gray-8); }
 .pjx-ts__grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 18px; margin-top: 8px; }
 .pjx-ts__h { font-size: 13px; font-weight: 500; color: var(--ink-gray-7); margin-bottom: 6px; }

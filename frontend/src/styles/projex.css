@@ -34,9 +34,10 @@ body { background: var(--surface-white); }
 }
 
 /* ─────────────────────── Sidebar ─────────────────────── */
-/* .pjx-side is the class on the frappe-ui <Sidebar> root — force the white
-   surface (over frappe-ui's bg-surface-sidebar) and add the right divider. */
-.pjx-side.pjx-side { background: var(--surface-white); border-right: 1px solid var(--outline-gray-1); }
+/* .pjx-side is the class on the frappe-ui <Sidebar> root. Keep frappe-ui's
+   tinted sidebar surface (subtly grayer than the white content pane — the
+   espresso signature) and add the right divider. */
+.pjx-side.pjx-side { background: var(--surface-sidebar); border-right: 1px solid var(--outline-gray-1); }
 .pjx-projicon { width: 18px; height: 18px; border-radius: 5px; flex: none; display: grid; place-items: center; background: var(--surface-gray-2); color: var(--ink-gray-6); }
 
 /* ─────────────────────── Topbar ─────────────────────── */
@@ -153,10 +154,13 @@ body { background: var(--surface-white); }
 .pjx-label { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 8px; border-radius: 9999px; border: 1px solid var(--outline-gray-1); background: var(--surface-white); color: var(--ink-gray-7); font-size: 12px; white-space: nowrap; }
 .pjx-label__dot { width: 6px; height: 6px; border-radius: 9999px; flex: none; }
 .pjx-pts { display: inline-grid; place-items: center; min-width: 22px; height: 18px; padding: 0 5px; border-radius: 4px; background: var(--surface-gray-2); color: var(--ink-gray-7); font-size: 12px; font-variant-numeric: tabular-nums; }
-.pjx-due { font-size: 12px; color: var(--ink-gray-7); font-variant-numeric: tabular-nums; }
+.pjx-due { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink-gray-6); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pjx-due svg { color: var(--ink-gray-4); }
 /* Semantic due pills (Helpdesk-style): only the urgent ones get color. */
-.pjx-due[data-tone='overdue'] { padding: 1px 8px; border-radius: 9999px; background: var(--surface-red-2); color: var(--ink-red-3); font-weight: 500; }
-.pjx-due[data-tone='today'] { padding: 1px 8px; border-radius: 9999px; background: var(--surface-amber-1); color: var(--ink-amber-3); font-weight: 500; }
+.pjx-due[data-tone='overdue'] { padding: 1px 8px 1px 6px; border-radius: 9999px; background: var(--surface-red-2); color: var(--ink-red-3); font-weight: 500; }
+.pjx-due[data-tone='today'] { padding: 1px 8px 1px 6px; border-radius: 9999px; background: var(--surface-amber-1); color: var(--ink-amber-3); font-weight: 500; }
+.pjx-due[data-tone='overdue'] svg { color: var(--ink-red-3); }
+.pjx-due[data-tone='today'] svg { color: var(--ink-amber-3); }
 .pjx-noass { color: var(--ink-gray-4); font-size: 12px; }
 
 /* ─────────────────────── Board ─────────────────────── */
@@ -177,9 +181,11 @@ body { background: var(--surface-white); }
 body.pjx-dragging { cursor: grabbing; user-select: none; }
 body.pjx-dragging * { cursor: grabbing !important; }
 /* Pending-age chip (time in current status) + rework badges — shared across views. */
-.pjx-age { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-gray-2); color: var(--ink-gray-5); white-space: nowrap; }
-.pjx-age[data-level='warn'] { background: var(--surface-amber-2); color: var(--ink-amber-3); }
-.pjx-age[data-level='stale'] { background: var(--surface-red-2); color: var(--ink-red-3); }
+/* Quiet "time in status" hint — muted text (with a clock glyph so it doesn't
+   read as a date), shown only when genuinely stale so it stays a rare signal
+   rather than a coloured pill on every row. */
+.pjx-age { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; color: var(--ink-gray-4); white-space: nowrap; }
+.pjx-age svg { color: var(--ink-gray-4); }
 .pjx-rwk { display: inline-flex; align-items: center; gap: 2px; height: 18px; padding: 0 5px; border-radius: 5px; font-size: 11px; font-weight: 600; background: var(--surface-red-1); color: var(--ink-red-3); }
 .pjx-card__top { display: flex; align-items: center; gap: 7px; }
 .pjx-card__title { font-size: 13px; color: var(--ink-gray-9); line-height: 1.42; text-wrap: pretty; }
@@ -219,14 +225,14 @@ body.pjx-dragging * { cursor: grabbing !important; }
 
 /* ─────────────────────── Drawer ─────────────────────── */
 .pjx-scrim { position: fixed; inset: 0; background: var(--black-overlay-300); z-index: var(--z-scrim); animation: pjxFade .18s ease both; }
-.pjx-drawer { position: fixed; top: 0; right: 0; width: min(940px, 88vw); height: 100vh; background: var(--surface-white); border-left: 1px solid var(--outline-gray-1); box-shadow: var(--shadow-xl); z-index: var(--z-drawer); display: flex; flex-direction: column; animation: pjxSlideIn .24s cubic-bezier(.2,.7,.2,1) both; }
+.pjx-drawer { position: fixed; top: 0; right: 0; width: min(840px, 92vw); height: 100vh; background: var(--surface-white); border-left: 1px solid var(--outline-gray-1); box-shadow: var(--shadow-xl); z-index: var(--z-drawer); display: flex; flex-direction: column; animation: pjxSlideIn .24s cubic-bezier(.2,.7,.2,1) both; }
 @keyframes pjxFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pjxSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
 .pjx-drawer__top { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--outline-gray-1); flex-shrink: 0; }
 .pjx-drawer__crumbs { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-gray-5); font-size: 12px; }
-.pjx-drawer__body { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) 280px; min-height: 0; overflow: hidden; }
-.pjx-drawer__main { overflow-y: auto; padding: 20px 24px 80px; }
-.pjx-drawer__side { border-left: 1px solid var(--outline-gray-1); padding: 16px; overflow-y: auto; background: var(--surface-gray-1); display: flex; flex-direction: column; gap: 14px; }
+.pjx-drawer__body { flex: 1; display: grid; grid-template-columns: minmax(0,1fr) 264px; min-height: 0; overflow: hidden; }
+.pjx-drawer__main { overflow-y: auto; padding: 20px 28px 80px; }
+.pjx-drawer__side { border-left: 1px solid var(--outline-gray-1); padding: 18px 16px; overflow-y: auto; background: var(--surface-white); display: flex; flex-direction: column; gap: 16px; }
 .pjx-statusrow { display: flex; gap: 8px; margin-bottom: 14px; }
 .pjx-dtitle { appearance: none; border: 0; background: transparent; outline: 0; width: 100%; font-family: var(--font-sans); font-weight: 500; font-size: 22px; line-height: 1.25; letter-spacing: -.01em; color: var(--ink-gray-9); padding: 0 0 10px; }
 .pjx-dtitle:focus { box-shadow: inset 0 -2px 0 var(--accent); }
@@ -270,12 +276,27 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-linked__row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--outline-gray-1); border-radius: 8px; font-size: 13px; color: var(--ink-gray-8); }
 .pjx-linked__rel { font-size: 11px; color: var(--ink-gray-5); width: 76px; flex: none; }
 .pjx-linked__id { color: var(--ink-gray-5); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; }
-.pjx-field { display: flex; flex-direction: column; gap: 6px; }
-.pjx-field__lbl { font-size: 11px; color: var(--ink-gray-5); letter-spacing: .02em; }
-.pjx-field__val { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--ink-gray-8); font-size: 13px; min-height: 22px; }
-.pjx-sideblock { border-top: 1px solid var(--outline-gray-1); padding-top: 12px; }
-.pjx-sideblock__h { font-size: 11px; color: var(--ink-gray-5); margin-bottom: 2px; }
-.pjx-sideblock__t { font-size: 12px; color: var(--ink-gray-7); }
+/* Quiet property list — label lane + chrome-less value that reveals on hover. */
+.pjx-props { display: flex; flex-direction: column; gap: 2px; }
+.pjx-prop { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 30px; }
+.pjx-prop--top { align-items: flex-start; }
+.pjx-prop--top .pjx-prop__lbl { padding-top: 7px; }
+.pjx-prop__lbl { font-size: 12px; color: var(--ink-gray-5); }
+.pjx-prop__val { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--ink-gray-8); font-size: 13px; min-width: 0; }
+.pjx-prop__val--ro { padding: 0 6px; color: var(--ink-gray-7); }
+/* Strip the frappe-ui control fill so empty props read as quiet ghost text. */
+.pjx-prop__val button,
+.pjx-prop__val input { background: transparent; border-color: transparent; box-shadow: none; height: auto; min-height: 28px; padding: 3px 6px; }
+.pjx-prop:hover .pjx-prop__val button,
+.pjx-prop:hover .pjx-prop__val input:not(:focus) { background: var(--surface-gray-2); }
+.pjx-prop__val button:focus,
+.pjx-prop__val button:focus-visible,
+.pjx-prop__val input:focus { background: var(--surface-gray-2); }
+.pjx-prop__val .pjx-inlineinput { padding: 3px 6px; }
+.pjx-props__more { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: 4px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--ink-gray-5); font-size: 12px; cursor: pointer; }
+.pjx-props__more:hover { background: var(--surface-gray-2); color: var(--ink-gray-7); }
+.pjx-props__meta { padding-top: 14px; border-top: 1px solid var(--outline-gray-1); }
+.pjx-props__meta .pjx-prop { min-height: 26px; }
 
 /* ─────────────────────── Inbox ─────────────────────── */
 .pjx-inbox { display: grid; grid-template-columns: 384px 1fr; height: 100%; min-height: 0; }
@@ -319,8 +340,9 @@ body.pjx-dragging * { cursor: grabbing !important; }
 .pjx-spin { animation: pjx-spin 0.9s linear infinite; }
 @keyframes pjx-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .pjx-spin { animation: none; } }
-.pjx-roadmap__bar { position: absolute; top: 3px; bottom: 3px; border-radius: 6px; display: flex; align-items: center; padding: 0 9px; color: #fff; font-size: 12px; font-weight: 500; cursor: pointer; }
-.pjx-roadmap__bar:hover { filter: brightness(.95); }
+.pjx-roadmap__bar { position: absolute; top: 3px; bottom: 3px; border-radius: 6px; display: flex; align-items: center; gap: 7px; padding: 0 10px; background: var(--surface-gray-3); color: var(--ink-gray-7); border: 1px solid var(--outline-gray-2); font-size: 12px; font-weight: 500; cursor: pointer; }
+.pjx-roadmap__bar:hover { background: var(--surface-gray-4); }
+.pjx-roadmap__dot { flex: none; width: 7px; height: 7px; border-radius: 9999px; }
 .pjx-roadmap__barlabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ─────────────────────── Empty/coming-soon ─────────────────────── */

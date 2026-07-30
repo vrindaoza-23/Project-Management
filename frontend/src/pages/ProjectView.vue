@@ -3,16 +3,15 @@ import { ref, watch, computed, onMounted, onUnmounted, reactive } from 'vue'
 import { createResource } from 'frappe-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import ViewControls from '@/components/ViewControls.vue'
-import SummaryView from './SummaryView.vue'
+import OverviewView from './OverviewView.vue'
 import ListView from './ListView.vue'
 import BacklogView from './BacklogView.vue'
 import BoardView from './BoardView.vue'
 import SprintBar from '@/components/SprintBar.vue'
 import GanttView from './GanttView.vue'
 import CalendarView from './CalendarView.vue'
-import ReportsView from './ReportsView.vue'
-import DashboardView from './DashboardView.vue'
 import DocsView from './DocsView.vue'
+import DeliveryView from './DeliveryView.vue'
 import TimesheetsView from './TimesheetsView.vue'
 import FinanceView from './FinanceView.vue'
 import ChangeLogView from './ChangeLogView.vue'
@@ -37,18 +36,18 @@ const TASK_VIEWS = [
 	{ id: 'backlog', label: 'Backlog', icon: 'layers' },
 ]
 const TASK_VIEW_IDS = TASK_VIEWS.map((v) => v.id)
-// Primary destinations. Surface id === content tab id, except Tasks (which opens
-// whichever view you last used).
+// Primary destinations — kept to four. Overview is the single analytics home
+// (it absorbed the old Dashboard and Reports surfaces). Surface id === content
+// tab id, except Tasks (which opens whichever view you last used).
 const SURFACES = [
 	{ id: 'summary', label: 'Overview' },
 	{ id: 'tasks', label: 'Tasks' },
-	{ id: 'dashboard', label: 'Dashboard' },
-	{ id: 'timesheets', label: 'Timesheets' },
+	{ id: 'delivery', label: 'Delivery' },
 	{ id: 'docs', label: 'Docs' },
 ]
 // Secondary destinations fold into the "More" menu; Finance is manager-only.
 const MORE_ITEMS = [
-	{ id: 'reports', label: 'Reports', icon: 'bar-chart-3' },
+	{ id: 'timesheets', label: 'Timesheets', icon: 'clock' },
 	{ id: 'finance', label: 'Finance', icon: 'wallet', managerOnly: true },
 	{ id: 'activity', label: 'Activity', icon: 'history' },
 ]
@@ -72,8 +71,23 @@ const assigneeOptions = computed(() => {
 	return opts
 })
 
-const DEFAULT_COLS = { labels: true, pts: true, due: true, updated: true, assignees: true }
-const view = reactive({ statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active', search: '', cols: { ...DEFAULT_COLS } })
+// "Updated" is off by default: a relative-time stamp on every row added a grey,
+// uniform lane with little scanning value. Still toggleable from Display.
+const DEFAULT_COLS = { labels: true, pts: true, due: true, updated: false, assignees: true }
+// Board opens on all issues, not the active sprint — most projects have no
+// active sprint, and defaulting to it showed empty columns over a full backlog.
+const view = reactive({ statusFilter: [], assignees: [], typeFilter: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'all', search: '', cols: { ...DEFAULT_COLS } })
+
+// Issue-type filter options (fixed set from the DocType). Untyped issues read
+// as "Task", matching the backend default.
+const TYPE_OPTIONS = ['Task', 'Bug', 'Story', 'Epic'].map((t) => ({ value: t, label: t }))
+
+// Overview panels deep-link into the task list with a filter pre-applied (e.g.
+// "View all bugs →"). Switch to the list and merge the filter so the chip shows.
+function onNavigate(tab, patch) {
+	activeTab.value = tab
+	if (patch) Object.assign(view, patch)
+}
 
 const board = createResource({
 	url: 'projex.api.get_issues',
@@ -129,7 +143,7 @@ async function saveCurrentView(name) {
 function applyView(v) {
 	let cfg = {}
 	try { cfg = JSON.parse(v.config || '{}') } catch (e) { cfg = {} }
-	Object.assign(view, { statusFilter: [], assignees: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'active', search: '', cols: { ...DEFAULT_COLS } }, cfg)
+	Object.assign(view, { statusFilter: [], assignees: [], typeFilter: [], sortBy: 'rank', groupBy: 'status', sprintScope: 'all', search: '', cols: { ...DEFAULT_COLS } }, cfg)
 	if (v.view_type) activeTab.value = v.view_type
 }
 async function deleteView(v) {
@@ -169,6 +183,7 @@ const viewIssues = computed(() => {
 	let rows = board.data?.issues || []
 	if (view.statusFilter.length) rows = rows.filter((i) => view.statusFilter.includes(i.status))
 	if (view.assignees.length) rows = rows.filter((i) => (i.assignees || []).some((a) => view.assignees.includes(a)))
+	if (view.typeFilter.length) rows = rows.filter((i) => view.typeFilter.includes(i.issue_type || 'Task'))
 	if (view.search.trim()) {
 		const q = view.search.trim().toLowerCase()
 		rows = rows.filter((i) => `${i.issue_id} ${i.title}`.toLowerCase().includes(q))
@@ -187,7 +202,9 @@ const boardIssues = computed(() => {
 	if (view.sprintScope === 'all') return rows
 	if (view.sprintScope === 'backlog') return rows.filter((i) => !i.cycle)
 	const name = scopedCycleName.value
-	if (!name) return view.sprintScope === 'active' ? [] : rows
+	// No resolvable sprint (e.g. "active" chosen but none running) → show all
+	// rather than an empty board.
+	if (!name) return rows
 	return rows.filter((i) => i.cycle === name)
 })
 // Issues in the scoped sprint (unfiltered) — for points + the Complete dialog.
@@ -223,6 +240,7 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			:more-items="visibleMoreItems"
 			:more-active="moreActive"
 			:presence="headerPresence"
+			:show-new="activeSurface === 'summary' || activeSurface === 'tasks'"
 			@surface="selectSurface"
 			@search="openPalette"
 			@new="openCreate(projectKey)"
@@ -237,6 +255,7 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			:show-group="activeTab === 'list'"
 			:saved-views="views.data || []"
 			:assignee-options="assigneeOptions"
+			:type-options="TYPE_OPTIONS"
 			@view="activeTab = $event"
 			@update="Object.assign(view, $event)"
 			@export="exportIssuesCsv(viewIssues, board.data?.statuses || [], projectKey)"
@@ -251,7 +270,7 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 			Showing the first {{ (board.data.issues || []).length }} of {{ board.data.total }} tasks. Filter to narrow results.
 		</div>
 		<div class="pjx-view">
-			<SummaryView v-if="activeTab === 'summary'" :project-key="projectKey" />
+			<OverviewView v-if="activeTab === 'summary'" :project-key="projectKey" @open="openDrawer" @navigate="onNavigate" />
 			<ListView
 				v-else-if="activeTab === 'list'"
 				:project-key="projectKey"
@@ -299,10 +318,9 @@ const issuePresence = computed(() => (tweaks.presence ? presence : {}))
 				:statuses="board.data?.statuses || []"
 				@open="openDrawer"
 			/>
-			<DashboardView v-else-if="activeTab === 'dashboard'" :project-key="projectKey" @open="openDrawer" />
-			<ReportsView v-else-if="activeTab === 'reports'" :project-key="projectKey" @open="openDrawer" />
 			<TimesheetsView v-else-if="activeTab === 'timesheets'" :project-key="projectKey" />
-			<FinanceView v-else-if="activeTab === 'finance'" :project-key="projectKey" />
+			<DeliveryView v-else-if="activeTab === 'delivery'" :project-key="projectKey" />
+				<FinanceView v-else-if="activeTab === 'finance'" :project-key="projectKey" />
 			<DocsView v-else-if="activeTab === 'docs'" :project-key="projectKey" />
 			<ChangeLogView v-else-if="activeTab === 'activity'" :project-key="projectKey" @open="openDrawer" />
 			<GanttView v-else :project-key="projectKey" @open="openDrawer" />

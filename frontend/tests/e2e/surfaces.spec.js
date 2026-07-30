@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { collectErrors, openProject, openSurface } from './helpers'
+import { collectErrors, openProject, openSurface, openMoreItem } from './helpers'
 
 // Deeper per-surface coverage beyond "it loads": each asserts a real landmark
 // and, where it makes sense, exercises one interaction — without mutating data.
@@ -44,10 +44,19 @@ test.describe('Global surfaces', () => {
 })
 
 test.describe('Project surfaces (deep)', () => {
+	test('Overview renders KPIs and status', async ({ page }) => {
+		const errors = collectErrors(page)
+		await openProject(page, 'BIL')
+		await openSurface(page, 'Overview')
+		await expect(page.locator('.pjx-kpis').first()).toBeVisible({ timeout: 15000 })
+		await expect(page.getByText('Recent activity')).toBeVisible()
+		expect(errors, errors.join('\n')).toEqual([])
+	})
+
 	test('Timesheets shows flow-time metrics', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await openSurface(page, 'Timesheets')
+		await openMoreItem(page, 'Timesheets')
 		await expect(page.locator('.pjx-ts').first()).toBeVisible({ timeout: 15000 })
 		await expect(page.getByText('Average time in each status')).toBeVisible()
 		expect(errors, errors.join('\n')).toEqual([])
@@ -62,19 +71,19 @@ test.describe('Project surfaces (deep)', () => {
 		expect(errors, errors.join('\n')).toEqual([])
 	})
 
-	test('Reports surface renders its cards', async ({ page }) => {
+	test('Overview surface shows workload + open bugs panels', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await page.getByRole('button', { name: /^More/ }).click()
-		await page.getByRole('menuitem', { name: /Reports/ }).click()
-		await expect(page.locator('.pjx-reports, .pjx-rgrid').first()).toBeVisible({ timeout: 15000 })
+		await openSurface(page, 'Overview')
+		await expect(page.getByRole('heading', { name: 'Workload' })).toBeVisible({ timeout: 15000 })
+		await expect(page.getByRole('heading', { name: 'Open bugs' })).toBeVisible()
 		expect(errors, errors.join('\n')).toEqual([])
 	})
 
 	test('Finance surface renders (manager-only)', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await page.getByRole('button', { name: /^More/ }).click()
+		await page.locator('.pjx-moretab').click()
 		await page.getByRole('menuitem', { name: /Finance/ }).click()
 		// either the finance dashboard or an ERPNext-not-linked state, but no crash
 		await expect(page.locator('.pjx-fin, .pjx-soon, .pjx-view').first()).toBeVisible({ timeout: 15000 })

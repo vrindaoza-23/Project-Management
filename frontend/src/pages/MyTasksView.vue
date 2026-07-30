@@ -5,11 +5,12 @@ import PageHeader from '@/components/PageHeader.vue'
 import Icon from '@/components/Icon.vue'
 import PriorityBars from '@/components/PriorityBars.vue'
 import { openPalette } from '@/data/ui'
-import { dueLabel, isToday } from '@/utils/format'
+import { dueLabel, dueTone } from '@/utils/format'
 
 const res = createResource({ url: 'projex.api.get_my_issues', auto: true })
 
 const GROUPS = [
+	{ id: 'overdue', label: 'Overdue' },
 	{ id: 'today', label: 'Today' },
 	{ id: 'week', label: 'This week' },
 	{ id: 'later', label: 'Later' },
@@ -38,7 +39,7 @@ const groups = computed(() =>
 						</span>
 						<span class="pjx-cell"><span class="pjx-dim t-xs">{{ it.project }}</span></span>
 						<span class="pjx-cell r"
-							><span v-if="it.due_date" class="pjx-due" :class="{ 'is-today': isToday(it.due_date) }">{{
+							><span v-if="it.due_date" class="pjx-due" :data-tone="dueTone(it.due_date)">{{
 								dueLabel(it.due_date)
 							}}</span></span
 						>

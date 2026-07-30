@@ -1013,6 +1013,23 @@ def bootstrap():
 		order_by="project_name asc",
 		ignore_permissions=False,
 	)
+	# Per-project manage flag (mirrors _can_manage_project): privileged users can
+	# manage everything, otherwise a project's lead or an Admin member can. Drives
+	# the sidebar row menu (archive/delete) so it only offers those where allowed.
+	privileged_manage = bool(set(frappe.get_roles()) & {"System Manager", "Projex Admin"})
+	admin_of = (
+		set()
+		if privileged_manage
+		else set(
+			frappe.get_all(
+				"Projex Project Member",
+				filters={"user": frappe.session.user, "role": "Admin"},
+				pluck="parent",
+			)
+		)
+	)
+	for p in projects:
+		p["can_manage"] = privileged_manage or p.get("lead") == frappe.session.user or p["name"] in admin_of
 	workspaces = frappe.get_all(
 		"Projex Workspace", fields=["name", "workspace_name", "icon"], order_by="workspace_name asc"
 	)
@@ -1512,7 +1529,7 @@ def get_project_summary(project):
 		"cards": {"completed": completed, "updated": updated, "created": created, "due_soon": due_soon},
 		"status_breakdown": breakdown,
 		"total": total,
-		"activity": get_activity(project, 12),
+		"activity": get_activity_digest(project, 6),
 	}
 
 
@@ -1578,6 +1595,47 @@ def get_activity(project, limit=20):
 		r["actor_name"] = frappe.db.get_value("User", r.actor, "full_name") or r.actor
 		r["issue_id"] = frappe.db.get_value("Projex Issue", r.issue, "issue_id") if r.issue else None
 	return rows
+
+
+# Bulk actions that arrive in bursts (a batch import or a recurring-task sweep)
+# and drown the signal ones. On the Overview digest they collapse into a single
+# count row instead of one line each; the full log keeps them separate.
+_DIGEST_COLLAPSE = {"created", "recurred"}
+
+
+def get_activity_digest(project, limit=5):
+	"""Curated feed for the Overview panel. A consecutive run of the same actor
+	doing the same bulk action (e.g. six 'created' rows in a row) collapses into
+	one 'created 6 tasks' entry, so status changes, comments and assignments
+	aren't buried under task-creation spam. The full chronological log lives on
+	the Activity tab via get_activity()."""
+	rows = frappe.get_all(
+		"Projex Activity",
+		filters={"project": project},
+		fields=["name", "issue", "actor", "action", "detail", "creation"],
+		order_by="creation desc",
+		limit=60,
+	)
+	digest, i, n = [], 0, len(rows)
+	while i < n and len(digest) < int(limit):
+		r = rows[i]
+		run = 1
+		if r.action in _DIGEST_COLLAPSE:
+			while i + run < n and rows[i + run].actor == r.actor and rows[i + run].action == r.action:
+				run += 1
+		if run > 1:
+			digest.append({
+				"name": r.name, "issue": None, "actor": r.actor, "action": r.action,
+				"detail": None, "creation": r.creation, "count": run,
+			})
+		else:
+			digest.append({**r, "count": 1})
+		i += run
+
+	for d in digest:
+		d["actor_name"] = frappe.db.get_value("User", d["actor"], "full_name") or d["actor"]
+		d["issue_id"] = frappe.db.get_value("Projex Issue", d["issue"], "issue_id") if d["issue"] else None
+	return digest
 
 
 @frappe.whitelist()
@@ -2086,7 +2144,7 @@ def get_my_issues():
 		"Projex Issue Assignee", filters={"user": user}, fields=["parent"], pluck="parent"
 	)
 	if not assigned:
-		return {"today": [], "week": [], "later": [], "done": []}
+		return {"overdue": [], "today": [], "week": [], "later": [], "done": []}
 
 	issues = frappe.get_all(
 		"Projex Issue",
@@ -2098,13 +2156,16 @@ def get_my_issues():
 
 	today = getdate(nowdate())
 	week_end = add_days(today, 7)
-	groups = {"today": [], "week": [], "later": [], "done": []}
+	groups = {"overdue": [], "today": [], "week": [], "later": [], "done": []}
 	for it in issues:
+		due = getdate(it["due_date"]) if it.get("due_date") else None
 		if it.get("_status_category") in ("completed", "cancelled"):
 			groups["done"].append(it)
-		elif it.get("due_date") and getdate(it["due_date"]) <= today:
+		elif due and due < today:
+			groups["overdue"].append(it)
+		elif due and due == today:
 			groups["today"].append(it)
-		elif it.get("due_date") and getdate(it["due_date"]) <= week_end:
+		elif due and due <= week_end:
 			groups["week"].append(it)
 		else:
 			groups["later"].append(it)
@@ -2462,11 +2523,49 @@ def _time_analytics(project):
 	}
 
 
+def _mirror_time_log_to_erpnext(doc):
+	"""Best-effort: mirror a native Projex Time Log into an ERPNext Timesheet so
+	billing/costing/payroll reconcile in one ledger. Returns the Timesheet name
+	or None. NEVER raises — the native log is the projex-side source of truth and
+	must not be held hostage to ERPNext validation."""
+	if not _erpnext_installed():
+		return None
+	try:
+		erpnext_project = frappe.db.get_value("Projex Project", doc.project, "erpnext_project")
+		issue = frappe.db.get_value(
+			"Projex Issue", doc.issue, ["issue_id", "title"], as_dict=True
+		) or frappe._dict(issue_id=doc.issue, title="")
+		company = frappe.defaults.get_global_default("company")
+		from_time = frappe.utils.get_datetime(f"{doc.spent_on} 09:00:00")
+		ts = frappe.new_doc("Timesheet")
+		if company:
+			ts.company = company
+		ts.parent_project = erpnext_project or None
+		ts.append(
+			"time_logs",
+			{
+				"hours": float(doc.hours),
+				"project": erpnext_project or None,
+				"is_billable": 1 if doc.is_billable else 0,
+				"billing_hours": float(doc.hours) if doc.is_billable else 0,
+				"description": f"[{issue.issue_id}] {issue.title}"
+				+ (f"\n{doc.note}" if doc.note else ""),
+				"from_time": from_time,
+			},
+		)
+		ts.insert(ignore_permissions=True)
+		return ts.name
+	except Exception:
+		frappe.log_error("projex: ERPNext timesheet mirror failed")
+		return None
+
+
 @frappe.whitelist()
 def create_time_log(issue, hours, spent_on=None, activity=None, is_billable=0, note=None, user=None):
 	"""Record time spent on a task — a NATIVE Projex Time Log (stored in the app,
-	no ERPNext needed). A timesheet entry references the existing task it was for;
-	it does not create a task."""
+	no ERPNext needed). When ERPNext is installed it is also mirrored into an
+	ERPNext Timesheet (single ledger for billing) and the link stamped back.
+	A timesheet entry references the existing task it was for; it does not create a task."""
 	from projex.permissions import user_can_access_project
 	project = frappe.db.get_value("Projex Issue", issue, "project")
 	if not project or not user_can_access_project(project):
@@ -2481,18 +2580,34 @@ def create_time_log(issue, hours, spent_on=None, activity=None, is_billable=0, n
 		"hours": float(hours), "spent_on": spent_on or frappe.utils.nowdate(),
 		"activity": activity or None, "is_billable": 1 if is_billable else 0, "note": note or None,
 	}).insert(ignore_permissions=True)
+	ts_name = _mirror_time_log_to_erpnext(doc)
+	if ts_name:
+		doc.db_set("erpnext_timesheet", ts_name)
 	frappe.db.commit()
-	return {"ok": True, "name": doc.name}
+	return {"ok": True, "name": doc.name, "erpnext_timesheet": ts_name}
 
 
 @frappe.whitelist()
 def delete_time_log(name):
-	"""Remove a native time log (own entry, or a manager of its project)."""
-	row = frappe.db.get_value("Projex Time Log", name, ["project", "user"], as_dict=True)
+	"""Remove a native time log (own entry, or a manager of its project).
+	Also removes its mirrored ERPNext Timesheet when that copy is still an
+	unbilled draft, so the two ledgers stay in step."""
+	row = frappe.db.get_value(
+		"Projex Time Log", name, ["project", "user", "billed", "erpnext_timesheet"], as_dict=True
+	)
 	if not row:
 		return {"ok": True}
 	if row.user != frappe.session.user and not _can_manage_project(row.project):
 		frappe.throw("Not permitted", frappe.PermissionError)
+	if row.billed:
+		frappe.throw("This time has already been billed and cannot be deleted.")
+	if row.erpnext_timesheet and frappe.db.exists("Timesheet", row.erpnext_timesheet):
+		try:
+			ts = frappe.get_doc("Timesheet", row.erpnext_timesheet)
+			if ts.docstatus == 0:
+				ts.delete(ignore_permissions=True)
+		except Exception:
+			frappe.log_error("projex: ERPNext timesheet cleanup on delete failed")
 	frappe.delete_doc("Projex Time Log", name, ignore_permissions=True)
 	frappe.db.commit()
 	return {"ok": True}

@@ -21,6 +21,7 @@ const tab = ref('comments')
 const newComment = ref('')
 const editingDesc = ref(false)
 const descDraft = ref('')
+const showAllProps = ref(false)
 
 const detail = createResource({
 	url: 'projex.api.get_issue',
@@ -95,6 +96,14 @@ function deleteChecklistItem(item) {
 	persistChecklist()
 }
 const subDone = computed(() => subtasks.value.filter((s) => s.done).length)
+
+// Secondary properties collapse when empty; "Add property" reveals them.
+const hasRepeat = computed(() => issue.value?.recurrence && issue.value.recurrence !== 'None')
+const hiddenSecondary = computed(() => {
+	const i = issue.value
+	if (!i) return 0
+	return (!i.start_date ? 1 : 0) + (!i.estimate ? 1 : 0) + (!hasRepeat.value ? 1 : 0)
+})
 
 const PRIORITIES = ['Urgent', 'High', 'Medium', 'Low', 'None']
 const TYPES = ['Task', 'Bug', 'Story', 'Epic']
@@ -508,11 +517,11 @@ async function removeLink(name) {
 						</div>
 					</div>
 
-					<div class="pjx-subs">
-						<div class="pjx-subs__head">
+					<div class="pjx-section" :class="{ 'is-empty': !checklist.length }">
+						<div v-if="checklist.length" class="pjx-subs__head">
 							<span style="font-weight: 500">Checklist</span>
-							<span v-if="checklist.length" class="pjx-subs__count">{{ checkDone }}/{{ checklist.length }}</span>
-							<span v-if="checklist.length" class="pjx-subs__bar"
+							<span class="pjx-subs__count">{{ checkDone }}/{{ checklist.length }}</span>
+							<span class="pjx-subs__bar"
 								><span
 									class="pjx-subs__fill"
 									:style="{ width: (checkDone / checklist.length) * 100 + '%' }"
@@ -525,12 +534,15 @@ async function removeLink(name) {
 								<Icon name="x" :size="13" />
 							</button>
 						</div>
-						<input
-							v-model="newChecklist"
-							class="pjx-check__add"
-							placeholder="Add checklist item…"
-							@keydown.enter="addChecklistItem"
-						/>
+						<div class="pjx-check__addrow">
+							<Icon name="plus" :size="14" class="ink-4" />
+							<input
+								v-model="newChecklist"
+								class="pjx-check__add"
+								:placeholder="checklist.length ? 'Add another item…' : 'Add a checklist'"
+								@keydown.enter="addChecklistItem"
+							/>
+						</div>
 					</div>
 
 					<TabButtons v-model="tab" :options="tabOptions" />
@@ -691,112 +703,134 @@ async function removeLink(name) {
 				</div>
 
 				<div class="pjx-drawer__side">
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Assignees</div>
-						<SelectField
-							:options="userOptions"
-							:model-value="issue.assignees"
-							multiple
-							placeholder="Unassigned"
-							@change="setAssignees"
-						/>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Reporter</div>
-						<div class="pjx-field__val">{{ userName(issue.reporter) }}</div>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Labels</div>
-						<SelectField :options="labelOptions" :model-value="labelIds" multiple placeholder="None" @change="setLabels" />
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Cycle</div>
-						<SelectField
-							:options="cycleOptions"
-							:model-value="issue.cycle"
-							placeholder="No cycle"
-							@change="(v) => changeField('cycle', v || null)"
-						/>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Project</div>
-						<div class="pjx-field__val">{{ issue.project }}</div>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Start date</div>
-						<div class="pjx-field__val">
-							<DatePicker
-								:model-value="issue.start_date || ''"
-								placeholder="No date"
-								@update:model-value="(v) => changeField('start_date', v || null)"
-							/>
-						</div>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Due</div>
-						<div class="pjx-field__val">
-							<DatePicker
-								:model-value="issue.due_date || ''"
-								placeholder="No date"
-								@update:model-value="(v) => changeField('due_date', v || null)"
-							/>
-						</div>
-					</div>
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Estimate</div>
-						<div class="pjx-field__val">
-							<input
-								type="number"
-								min="0"
-								class="pjx-inlineinput"
-								style="width: 70px"
-								:value="issue.estimate || ''"
-								@change="(e) => changeField('estimate', Number(e.target.value) || 0)"
-							/>
-							<span class="t-xs ink-5">points</span>
-						</div>
-					</div>
-
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Repeat</div>
-						<SelectField
-							:options="RECURRENCE_OPTIONS"
-							:model-value="issue.recurrence || 'None'"
-							placeholder="Never"
-							@change="(v) => changeField('recurrence', v || 'None')"
-						/>
-					</div>
-
-					<div class="pjx-field">
-						<div class="pjx-field__lbl">Pending</div>
-						<div class="pjx-field__val flex" style="gap: 6px; flex-wrap: wrap">
-							<span class="pjx-age" :data-level="ageChip(issue.status_changed_on, issue.modified).level">{{ ageChip(issue.status_changed_on, issue.modified).label || '—' }} in status</span>
-							<span v-if="issue.reopen_count" class="pjx-rwk" title="Times reopened"><Icon name="undo-2" :size="12" />{{ issue.reopen_count }} reopened</span>
-							<span v-if="issue.rework_count" class="pjx-rwk" title="Times sent back"><Icon name="rotate-ccw" :size="12" />{{ issue.rework_count }} reworked</span>
-						</div>
-					</div>
-
-					<div v-if="integration.data?.timesheet" class="pjx-field">
-						<div class="pjx-field__lbl">Time (ERPNext)</div>
-						<div class="pjx-field__val flex col" style="align-items: flex-start; gap: 4px">
-							<Button variant="subtle" theme="gray" size="sm" @click="logTimeOpen = true">
-								<template #prefix><Icon name="clock" :size="13" /></template>
-								Log time
-							</Button>
-							<div v-for="(t, i) in timeLogs.data || []" :key="i" class="t-xs ink-6">
-								{{ t.hours }}h · {{ t.billed ? 'billed' : 'unbilled' }}
+					<div class="pjx-props">
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Assignees</div>
+							<div class="pjx-prop__val">
+								<SelectField
+									:options="userOptions"
+									:model-value="issue.assignees"
+									multiple
+									placeholder="Unassigned"
+									@change="setAssignees"
+								/>
 							</div>
 						</div>
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Labels</div>
+							<div class="pjx-prop__val">
+								<SelectField :options="labelOptions" :model-value="labelIds" multiple placeholder="None" @change="setLabels" />
+							</div>
+						</div>
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Cycle</div>
+							<div class="pjx-prop__val">
+								<SelectField
+									:options="cycleOptions"
+									:model-value="issue.cycle"
+									placeholder="No cycle"
+									@change="(v) => changeField('cycle', v || null)"
+								/>
+							</div>
+						</div>
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Due</div>
+							<div class="pjx-prop__val">
+								<DatePicker
+									:model-value="issue.due_date || ''"
+									placeholder="No date"
+									@update:model-value="(v) => changeField('due_date', v || null)"
+								/>
+							</div>
+						</div>
+
+						<div v-if="issue.start_date || showAllProps" class="pjx-prop">
+							<div class="pjx-prop__lbl">Start date</div>
+							<div class="pjx-prop__val">
+								<DatePicker
+									:model-value="issue.start_date || ''"
+									placeholder="No date"
+									@update:model-value="(v) => changeField('start_date', v || null)"
+								/>
+							</div>
+						</div>
+						<div v-if="issue.estimate || showAllProps" class="pjx-prop">
+							<div class="pjx-prop__lbl">Estimate</div>
+							<div class="pjx-prop__val">
+								<input
+									type="number"
+									min="0"
+									class="pjx-inlineinput"
+									style="width: 56px"
+									:value="issue.estimate || ''"
+									placeholder="—"
+									@change="(e) => changeField('estimate', Number(e.target.value) || 0)"
+								/>
+								<span class="t-xs ink-5">points</span>
+							</div>
+						</div>
+						<div v-if="hasRepeat || showAllProps" class="pjx-prop">
+							<div class="pjx-prop__lbl">Repeat</div>
+							<div class="pjx-prop__val">
+								<SelectField
+									:options="RECURRENCE_OPTIONS"
+									:model-value="issue.recurrence || 'None'"
+									placeholder="Never"
+									@change="(v) => changeField('recurrence', v || 'None')"
+								/>
+							</div>
+						</div>
+
+						<button
+							v-if="!showAllProps && hiddenSecondary"
+							class="pjx-props__more"
+							@click="showAllProps = true"
+						>
+							<Icon name="plus" :size="14" /> Add property
+						</button>
 					</div>
 
-					<div class="pjx-sideblock">
-						<div class="pjx-sideblock__h">Created</div>
-						<div class="pjx-sideblock__t">{{ relativeTime(issue.creation) }} ago</div>
-						<div class="pjx-sideblock__h" style="margin-top: 8px">Last updated</div>
-						<div class="pjx-sideblock__t">{{ relativeTime(issue.modified) }} ago</div>
-					</div>
+					<div class="pjx-props pjx-props__meta">
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Reporter</div>
+							<div class="pjx-prop__val pjx-prop__val--ro">{{ userName(issue.reporter) }}</div>
+						</div>
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Project</div>
+							<div class="pjx-prop__val pjx-prop__val--ro">{{ issue.project }}</div>
+						</div>
+						<div class="pjx-prop pjx-prop--top">
+							<div class="pjx-prop__lbl">Pending</div>
+							<div class="pjx-prop__val" style="gap: 6px; flex-wrap: wrap">
+								<span class="pjx-age" :data-level="ageChip(issue.status_changed_on, issue.modified).level">{{ ageChip(issue.status_changed_on, issue.modified).label || '—' }} in status</span>
+								<span v-if="issue.reopen_count" class="pjx-rwk" title="Times reopened"><Icon name="undo-2" :size="12" />{{ issue.reopen_count }} reopened</span>
+								<span v-if="issue.rework_count" class="pjx-rwk" title="Times sent back"><Icon name="rotate-ccw" :size="12" />{{ issue.rework_count }} reworked</span>
+							</div>
+						</div>
 
+						<div v-if="integration.data?.timesheet" class="pjx-prop pjx-prop--top">
+							<div class="pjx-prop__lbl">Time</div>
+							<div class="pjx-prop__val flex col" style="align-items: flex-start; gap: 4px">
+								<Button variant="subtle" theme="gray" size="sm" @click="logTimeOpen = true">
+									<template #prefix><Icon name="clock" :size="13" /></template>
+									Log time
+								</Button>
+								<div v-for="(t, i) in timeLogs.data || []" :key="i" class="t-xs ink-6">
+									{{ t.hours }}h · {{ t.billed ? 'billed' : 'unbilled' }}
+								</div>
+							</div>
+						</div>
+
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Created</div>
+							<div class="pjx-prop__val pjx-prop__val--ro">{{ relativeTime(issue.creation) }} ago</div>
+						</div>
+						<div class="pjx-prop">
+							<div class="pjx-prop__lbl">Updated</div>
+							<div class="pjx-prop__val pjx-prop__val--ro">{{ relativeTime(issue.modified) }} ago</div>
+						</div>
 					</div>
+				</div>
 			</div>
 			<div v-else class="pjx-drawer__body" style="padding: 40px">
 				<span class="t-sm ink-5">Loading…</span>
@@ -813,6 +847,23 @@ async function removeLink(name) {
 </template>
 
 <style scoped>
+/* Checklist: a plain section (no card chrome), quiet until it has items. */
+.pjx-section {
+	margin-bottom: 18px;
+}
+.pjx-check__addrow {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 2px;
+	border-radius: 6px;
+}
+.pjx-section:not(.is-empty) .pjx-check__addrow {
+	margin-top: 2px;
+}
+.pjx-check__addrow:hover {
+	background: var(--surface-gray-1);
+}
 .pjx-check__row {
 	align-items: center;
 }
@@ -835,15 +886,15 @@ async function removeLink(name) {
 	background: var(--surface-gray-2);
 }
 .pjx-check__add {
-	width: 100%;
-	margin-top: 4px;
+	flex: 1;
+	min-width: 0;
 	border: 0;
 	outline: 0;
 	background: transparent;
 	font-size: 13px;
 	color: var(--ink-gray-8);
 	font-family: var(--font-sans);
-	padding: 4px 2px;
+	padding: 0;
 }
 .pjx-check__add::placeholder {
 	color: var(--ink-gray-4);

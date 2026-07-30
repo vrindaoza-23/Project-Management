@@ -16,6 +16,9 @@ const props = defineProps({
 	activeSurface: { type: String, default: '' },
 	moreItems: { type: Array, default: () => [] }, // [{ id, label, icon }] → dropdown
 	moreActive: { type: Boolean, default: false },
+	// The global "New task" button only belongs where a task is the primary
+	// action; surfaces like Delivery/Docs carry their own create action instead.
+	showNew: { type: Boolean, default: true },
 })
 const emit = defineEmits(['search', 'new', 'tab', 'surface'])
 
@@ -101,7 +104,7 @@ const surfaceOptions = computed(() =>
 				<Icon name="search" :size="15" />
 				<span class="kbd">⌘K</span>
 			</button>
-			<Button variant="solid" theme="gray" @click="emit('new')">
+			<Button v-if="showNew" variant="solid" theme="gray" @click="emit('new')">
 				<template #prefix><Icon name="plus" :size="15" /></template>
 				New task
 			</Button>

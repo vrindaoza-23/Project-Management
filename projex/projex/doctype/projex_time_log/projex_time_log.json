@@ -13,7 +13,11 @@
   "spent_on",
   "activity",
   "is_billable",
-  "note"
+  "note",
+  "billing_rate",
+  "billed",
+  "sales_invoice",
+  "erpnext_timesheet"
  ],
  "fields": [
   {
@@ -70,6 +74,34 @@
    "fieldname": "note",
    "fieldtype": "Small Text",
    "label": "Note"
+  },
+  {
+   "description": "Hourly rate captured from the project rate card at billing time",
+   "fieldname": "billing_rate",
+   "fieldtype": "Currency",
+   "label": "Billing rate",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "billed",
+   "fieldtype": "Check",
+   "label": "Billed",
+   "read_only": 1
+  },
+  {
+   "description": "ERPNext Sales Invoice this time was billed on",
+   "fieldname": "sales_invoice",
+   "fieldtype": "Data",
+   "label": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "description": "ERPNext Timesheet this entry was mirrored into",
+   "fieldname": "erpnext_timesheet",
+   "fieldtype": "Data",
+   "label": "ERPNext Timesheet",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

@@ -22,6 +22,8 @@
   "labels",
   "planning_section",
   "cycle",
+  "phase",
+  "milestone",
   "start_date",
   "due_date",
   "estimate",
@@ -140,6 +142,18 @@
    "fieldtype": "Link",
    "label": "Cycle",
    "options": "Projex Cycle"
+  },
+  {
+   "fieldname": "phase",
+   "fieldtype": "Link",
+   "label": "Phase",
+   "options": "Projex Phase"
+  },
+  {
+   "fieldname": "milestone",
+   "fieldtype": "Link",
+   "label": "Milestone",
+   "options": "Projex Milestone"
   },
   {
    "fieldname": "start_date",

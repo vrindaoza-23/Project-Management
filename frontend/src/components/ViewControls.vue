@@ -15,6 +15,7 @@ const props = defineProps({
 	showGroup: { type: Boolean, default: true }, // group/columns apply (list only)
 	savedViews: { type: Array, default: () => [] }, // [{ name, view_name, view_type, config }]
 	assigneeOptions: { type: Array, default: () => [] }, // [{ value, label }]
+	typeOptions: { type: Array, default: () => [] }, // [{ value, label }] issue types
 })
 const emit = defineEmits(['update', 'export', 'save-view', 'apply-view', 'delete-view', 'view'])
 
@@ -46,15 +47,18 @@ const statusOptions = computed(() => props.statuses.map((s) => ({ value: s.name,
 const pendingFilter = ref(null) // chip rendered (empty) while its editor is open
 const statusChip = ref(null)
 const assigneeChip = ref(null)
+const typeChip = ref(null)
 
 const FILTERS = [
 	{ id: 'status', label: 'Status' },
 	{ id: 'assignee', label: 'Assignee' },
+	{ id: 'type', label: 'Type' },
 ]
+const CHIP_REFS = { status: statusChip, assignee: assigneeChip, type: typeChip }
 async function addFilter(kind) {
 	pendingFilter.value = kind
 	await nextTick()
-	;(kind === 'status' ? statusChip : assigneeChip).value?.openPanel()
+	CHIP_REFS[kind].value?.openPanel()
 }
 function onChipClose(kind) {
 	if (pendingFilter.value === kind) pendingFilter.value = null
@@ -152,6 +156,23 @@ async function saveView() {
 						<span class="pjx-chip2__k">Assignee</span>
 						<span class="pjx-chip2__v">{{ chipLabel(assigneeOptions, state.assignees || []) }}</span>
 						<span class="pjx-chip2__x" title="Clear filter" @click.stop="set({ assignees: [] })"><Icon name="x" :size="12" /></span>
+					</span>
+				</template>
+			</MultiSelectPopover>
+			<MultiSelectPopover
+				v-if="(state.typeFilter || []).length || pendingFilter === 'type'"
+				ref="typeChip"
+				bare
+				:options="typeOptions"
+				:model-value="state.typeFilter || []"
+				@change="(v) => set({ typeFilter: v })"
+				@close="onChipClose('type')"
+			>
+				<template #trigger>
+					<span class="pjx-chip2">
+						<span class="pjx-chip2__k">Type</span>
+						<span class="pjx-chip2__v">{{ chipLabel(typeOptions, state.typeFilter || []) }}</span>
+						<span class="pjx-chip2__x" title="Clear filter" @click.stop="set({ typeFilter: [] })"><Icon name="x" :size="12" /></span>
 					</span>
 				</template>
 			</MultiSelectPopover>

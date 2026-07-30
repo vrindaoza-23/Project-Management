@@ -59,6 +59,9 @@ app_license = "agpl-3.0"
 # Serve the Vue SPA: deep links under /projex resolve to the built page.
 website_route_rules = [
 	{"from_route": "/projex/<path:app_path>", "to_route": "projex"},
+	# Pretty hyphenated URL for the client portal → underscore template
+	# (a hyphenated www .py can't be imported, so the file must use underscores).
+	{"from_route": "/projex-portal", "to_route": "projex_portal"},
 ]
 
 # application home page (will override Website Settings)
@@ -101,6 +104,7 @@ after_install = [
 after_migrate = [
 	"projex.setup.defaults.run",
 	"projex.setup.erpnext_integration.setup_custom_fields",
+	"projex.project_templates.ensure_default_templates",
 ]
 
 # Uninstallation

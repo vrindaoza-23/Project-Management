@@ -1,34 +1,32 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
-import { createResource, Avatar, Button, Select, Checkbox } from 'frappe-ui'
+import { createResource, Avatar, Button, Badge } from 'frappe-ui'
 import PageHeader from '@/components/PageHeader.vue'
 import Icon from '@/components/Icon.vue'
-import SelectField from '@/components/SelectField.vue'
-import { openPalette, openDrawer } from '@/data/ui'
+import KpiStrip from '@/components/KpiStrip.vue'
+import { store } from '@/data/store'
+import { openPalette, openDrawer, openAppSettings } from '@/data/ui'
 import { relativeTime } from '@/utils/format'
-import { notify, notifyError, confirm } from '@/utils/feedback'
 
-const ROLE_OPTS = [
-	{ label: 'Admin', value: 'Admin' },
-	{ label: 'Member', value: 'Member' },
-	{ label: 'Guest', value: 'Guest' },
-]
 const OPEN_CATS = ['backlog', 'unstarted', 'started']
+// Task workflow category → Badge theme, so status chips read in colour like the
+// rest of the app (Todo grey, In progress amber, Done green, Cancelled red).
+const STATUS_THEME = {
+	backlog: 'gray',
+	unstarted: 'gray',
+	started: 'amber',
+	completed: 'green',
+	cancelled: 'red',
+}
+const statusTheme = (cat) => STATUS_THEME[cat] || 'gray'
 
 const overview = createResource({ url: 'projex.api.get_users_overview', auto: true })
 const detail = createResource({ url: 'projex.api.get_user_detail' })
 
-const roleUpdate = createResource({ url: 'projex.api.update_member_role' })
-const allAccess = createResource({ url: 'projex.api.set_all_access' })
-const memberAdd = createResource({ url: 'projex.api.add_member' })
-const memberRemove = createResource({ url: 'projex.api.remove_member' })
-
 const selected = ref(null)
-const newProjects = ref([])
-const newRole = ref('Member')
 const search = ref('')
 
-const canGrantAllAccess = computed(() => overview.data?.can_grant_all_access)
+const canManageUsers = computed(() => store.canManageUsers)
 const users = computed(() => overview.data?.users || [])
 const filtered = computed(() => {
 	const q = search.value.trim().toLowerCase()
@@ -41,10 +39,20 @@ const current = computed(() => detail.data)
 const openCount = computed(() =>
 	(detail.data?.assigned || []).filter((t) => OPEN_CATS.includes(t.category)).length,
 )
+const statItems = computed(() => {
+	const c = current.value
+	if (!c) return []
+	return [
+		{ label: 'Projects', value: c.projects.length },
+		{ label: 'Open', value: openCount.value },
+		{ label: 'Assigned', value: c.assigned.length },
+		{ label: 'Comments', value: c.comments.length },
+		{ label: 'Mentions', value: c.mentions.length },
+	]
+})
 
 function selectUser(user) {
 	selected.value = user
-	newProjects.value = []
 	detail.submit({ user })
 }
 
@@ -52,41 +60,8 @@ watch(filtered, (list) => {
 	if (!selected.value && list.length) selectUser(list[0].user)
 })
 
-async function changeRole(p, role) {
-	if (!role || role === p.role) return
-	await roleUpdate.submit({ parent_doctype: 'Projex Project', parent: p.project, user: selected.value, role })
-	detail.reload()
-}
-async function toggleAllAccess(u, enabled) {
-	await allAccess.submit({ user: u.user, enabled: enabled ? 1 : 0 })
-	overview.reload()
-	if (selected.value === u.user) detail.reload()
-}
-async function allocate() {
-	for (const proj of newProjects.value) {
-		await memberAdd.submit({ parent_doctype: 'Projex Project', parent: proj, user: selected.value, role: newRole.value })
-	}
-	newProjects.value = []
-	newRole.value = 'Member'
-	detail.reload()
-	overview.reload()
-}
-async function deallocate(p) {
-	const ok = await confirm({
-		title: 'Remove from project',
-		message: `Remove ${current.value.full_name} from ${p.project_name}?`,
-		confirmLabel: 'Remove',
-		theme: 'red',
-	})
-	if (!ok) return
-	try {
-		await memberRemove.submit({ parent_doctype: 'Projex Project', parent: p.project, user: selected.value })
-		detail.reload()
-		overview.reload()
-		notify.success(`Removed ${current.value.full_name} from ${p.project_name}`)
-	} catch (e) {
-		notifyError(e, 'Could not remove member')
-	}
+function manageAccess() {
+	openAppSettings('people-access', current.value.user)
 }
 
 const ACTION_ICON = {
@@ -100,16 +75,16 @@ const ACTION_ICON = {
 
 <template>
 	<div class="pjx-main">
-		<PageHeader :crumbs="[{ label: 'Users', icon: 'users' }]" @search="openPalette" />
+		<PageHeader :crumbs="[{ label: 'People', icon: 'users' }]" @search="openPalette" />
 		<div class="pjx-users">
 			<!-- LEFT: roster -->
 			<div class="pjx-ppl-list">
 				<div class="pjx-ppl-list__h">
-					<span>Users <span class="pjx-dim">· {{ users.length }}</span></span>
+					<span>People <span class="pjx-dim">· {{ users.length }}</span></span>
 				</div>
 				<div class="pjx-usr-search">
 					<Icon name="search" :size="14" class="pjx-dim" />
-					<input v-model="search" class="pjx-usr-search__in" placeholder="Search users" />
+					<input v-model="search" class="pjx-usr-search__in" placeholder="Search people" />
 				</div>
 
 				<div
@@ -127,19 +102,7 @@ const ACTION_ICON = {
 							<template v-if="u.last_activity"> · active {{ relativeTime(u.last_activity) }}</template>
 						</span>
 					</div>
-					<label
-						v-if="canGrantAllAccess"
-						class="pjx-ppl-all"
-						title="Grant visibility into every project"
-						@click.stop
-					>
-						<Checkbox
-							:model-value="u.is_all_access"
-							label="All projects"
-							@update:model-value="(v) => toggleAllAccess(u, v)"
-						/>
-					</label>
-					<span v-else-if="u.is_all_access" class="pjx-badge">All-access</span>
+					<Badge v-if="u.is_all_access" theme="gray" variant="subtle" size="sm">All-access</Badge>
 				</div>
 				<div v-if="!filtered.length && !overview.loading" class="pjx-ppl-empty">No users found.</div>
 			</div>
@@ -149,49 +112,29 @@ const ACTION_ICON = {
 				<template v-if="current">
 					<div class="pjx-ppl-detail__h">
 						<Avatar :label="current.full_name" :image="current.user_image" size="xl" />
-						<div>
+						<div style="flex: 1; min-width: 0">
 							<div class="pjx-ppl-detail__name">{{ current.full_name }}</div>
 							<div class="pjx-dim t-sm">{{ current.user }}<template v-if="current.is_all_access"> · All-access</template></div>
 						</div>
+						<Button v-if="canManageUsers" variant="subtle" theme="gray" @click="manageAccess">
+							<template #prefix><Icon name="settings" :size="14" /></template>
+							Manage access
+						</Button>
 					</div>
 
-					<div class="pjx-stat-grid">
-						<div class="pjx-stat"><b>{{ current.projects.length }}</b><span>Projects</span></div>
-						<div class="pjx-stat"><b>{{ openCount }}</b><span>Open tasks</span></div>
-						<div class="pjx-stat"><b>{{ current.assigned.length }}</b><span>Assigned</span></div>
-						<div class="pjx-stat"><b>{{ current.comments.length }}</b><span>Comments</span></div>
-						<div class="pjx-stat"><b>{{ current.mentions.length }}</b><span>Mentions</span></div>
+					<div class="pjx-detail-kpis">
+						<KpiStrip :items="statItems" />
 					</div>
 
-					<!-- Project allocations -->
+					<!-- Projects (read-only; admins edit access via Manage access) -->
 					<div class="pjx-ppl-sec">
-						<div class="pjx-ppl-sec__h">Project allocation</div>
+						<div class="pjx-ppl-sec__h">Projects</div>
 						<div v-for="p in current.projects" :key="p.project" class="pjx-ppl-item">
 							<span class="pjx-id">{{ p.key }}</span>
 							<span class="pjx-ppl-item__t">{{ p.project_name }}</span>
-							<div v-if="p.can_manage && p.role !== 'Lead'" style="width: 116px" @click.stop>
-								<Select :model-value="p.role" :options="ROLE_OPTS" @update:model-value="(v) => changeRole(p, v)" />
-							</div>
-							<span v-else class="pjx-badge">{{ p.role }}</span>
-							<Button v-if="p.can_manage && p.role !== 'Lead'" variant="ghost" theme="gray" title="Remove from project" @click="deallocate(p)">
-								<template #icon><Icon name="x" :size="14" /></template>
-							</Button>
+							<Badge theme="gray" variant="subtle" size="sm">{{ p.role }}</Badge>
 						</div>
 						<div v-if="!current.projects.length" class="pjx-dim t-sm">Not allocated to any project.</div>
-
-						<div v-if="current.allocatable.length" class="pjx-ppl-add">
-							<div class="flex col g-1" style="flex: 1">
-								<span class="t-xs ink-5">Allocate to projects</span>
-								<SelectField v-model="newProjects" :options="current.allocatable" multiple placeholder="Pick projects" />
-							</div>
-							<div class="flex col g-1" style="width: 116px">
-								<span class="t-xs ink-5">Role</span>
-								<Select v-model="newRole" :options="ROLE_OPTS" />
-							</div>
-							<Button variant="subtle" theme="gray" :loading="memberAdd.loading" :disabled="!newProjects.length" @click="allocate">
-								Add
-							</Button>
-						</div>
 					</div>
 
 					<div v-if="detail.loading" class="pjx-dim t-sm" style="padding: 12px">Loading…</div>
@@ -202,7 +145,7 @@ const ACTION_ICON = {
 							<div v-for="t in current.assigned" :key="t.name" class="pjx-ppl-item is-link" @click="openDrawer(t.name)">
 								<span class="pjx-id">{{ t.issue_id }}</span>
 								<span class="pjx-ppl-item__t">{{ t.title }}</span>
-								<span class="pjx-badge">{{ t.status_name }}</span>
+								<Badge :theme="statusTheme(t.category)" variant="subtle" size="sm">{{ t.status_name }}</Badge>
 							</div>
 							<div v-if="!current.assigned.length" class="pjx-dim t-sm">No assigned tasks.</div>
 						</div>
@@ -251,7 +194,7 @@ const ACTION_ICON = {
 						</div>
 					</template>
 				</template>
-				<div v-else class="pjx-ppl-empty">Select a user to manage their projects and see activity.</div>
+				<div v-else class="pjx-ppl-empty">Select someone to see their projects and activity.</div>
 			</div>
 		</div>
 	</div>
@@ -260,32 +203,39 @@ const ACTION_ICON = {
 <style scoped>
 .pjx-users {
 	display: grid;
-	grid-template-columns: minmax(360px, 1fr) minmax(380px, 1.1fr);
-	gap: 16px;
-	padding: 16px;
+	grid-template-columns: minmax(340px, 1fr) minmax(380px, 1.15fr);
+	gap: 0;
 	flex: 1;
 	min-height: 0;
 	overflow: hidden;
+	letter-spacing: 0.02em;
 }
-.pjx-ppl-list,
+/* Flush split: no boxes — the two panes read apart on one surface, divided by a
+   single hairline rather than each sitting inside its own card. */
+.pjx-ppl-list {
+	overflow-y: auto;
+}
 .pjx-ppl-detail {
 	overflow-y: auto;
-	border: 1px solid var(--outline-gray-1);
-	border-radius: 12px;
-	background: var(--surface-white);
+	border-inline-start: 1px solid var(--outline-gray-1);
 }
 .pjx-ppl-list__h {
 	position: sticky;
 	top: 0;
+	z-index: 2;
 	background: var(--surface-white);
 	padding: 12px 14px;
 	font-weight: 600;
 	border-bottom: 1px solid var(--outline-gray-1);
 }
 .pjx-usr-search {
+	position: sticky;
+	top: 45px;
+	z-index: 2;
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	background: var(--surface-white);
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--outline-gray-1);
 }
@@ -325,16 +275,6 @@ const ACTION_ICON = {
 	font-size: 12px;
 	color: var(--ink-gray-5);
 }
-.pjx-ppl-all {
-	display: inline-flex;
-	align-items: center;
-}
-.pjx-ppl-add {
-	display: flex;
-	gap: 8px;
-	align-items: flex-end;
-	padding: 12px 0 4px;
-}
 .pjx-ppl-detail__h {
 	display: flex;
 	gap: 12px;
@@ -347,27 +287,9 @@ const ACTION_ICON = {
 	font-weight: 600;
 	color: var(--ink-gray-9);
 }
-.pjx-stat-grid {
-	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: 8px;
-	padding: 14px;
-}
-.pjx-stat {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	padding: 10px 4px;
-	background: var(--surface-gray-1);
-	border-radius: 10px;
-}
-.pjx-stat b {
-	font-size: 18px;
-	color: var(--ink-gray-9);
-}
-.pjx-stat span {
-	font-size: 11px;
-	color: var(--ink-gray-5);
+/* Shared Espresso stat strip (KpiStrip), inset to match the section padding. */
+.pjx-detail-kpis {
+	margin: 14px 16px;
 }
 .pjx-ppl-sec {
 	padding: 6px 14px 14px;
@@ -410,14 +332,6 @@ const ACTION_ICON = {
 	font-variant-numeric: tabular-nums;
 	font-size: 12px;
 	color: var(--ink-gray-5);
-}
-.pjx-badge {
-	font-size: 12px;
-	padding: 1px 8px;
-	border-radius: 999px;
-	background: var(--surface-gray-2);
-	color: var(--ink-gray-7);
-	white-space: nowrap;
 }
 .pjx-ppl-empty {
 	padding: 24px;

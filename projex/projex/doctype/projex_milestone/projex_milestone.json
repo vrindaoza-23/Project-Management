@@ -1,0 +1,220 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "milestone_name",
+  "project",
+  "phase",
+  "position",
+  "status",
+  "target_date",
+  "description",
+  "billing_section",
+  "billing_type",
+  "billing_amount",
+  "billing_percent",
+  "column_break_billing",
+  "invoiced",
+  "sales_invoice",
+  "signoff_section",
+  "client_signoff_status",
+  "signoff_requested_on",
+  "signed_off_by",
+  "signed_off_on",
+  "signoff_note"
+ ],
+ "fields": [
+  {
+   "fieldname": "milestone_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Milestone name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Project",
+   "options": "Projex Project",
+   "reqd": 1
+  },
+  {
+   "fieldname": "phase",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Phase",
+   "options": "Projex Phase"
+  },
+  {
+   "default": "0",
+   "fieldname": "position",
+   "fieldtype": "Int",
+   "label": "Position"
+  },
+  {
+   "default": "Planned",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Planned\nIn Progress\nDelivered\nApproved\nRejected"
+  },
+  {
+   "fieldname": "target_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Target date"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Billing"
+  },
+  {
+   "default": "Fixed",
+   "fieldname": "billing_type",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Billing type",
+   "options": "Fixed\nTime & Materials\nRetainer\nNon-billable"
+  },
+  {
+   "depends_on": "eval:doc.billing_type==='Fixed' || doc.billing_type==='Retainer'",
+   "fieldname": "billing_amount",
+   "fieldtype": "Currency",
+   "label": "Billing amount"
+  },
+  {
+   "depends_on": "eval:doc.billing_type==='Fixed'",
+   "description": "Optional: percent of the project contract value (used if amount is blank)",
+   "fieldname": "billing_percent",
+   "fieldtype": "Percent",
+   "label": "Billing percent"
+  },
+  {
+   "fieldname": "column_break_billing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "invoiced",
+   "fieldtype": "Check",
+   "label": "Invoiced",
+   "read_only": 1
+  },
+  {
+   "description": "ERPNext Sales Invoice this milestone was billed on",
+   "fieldname": "sales_invoice",
+   "fieldtype": "Data",
+   "label": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signoff_section",
+   "fieldtype": "Section Break",
+   "label": "Client sign-off"
+  },
+  {
+   "default": "Not Requested",
+   "fieldname": "client_signoff_status",
+   "fieldtype": "Select",
+   "label": "Sign-off status",
+   "options": "Not Requested\nPending\nApproved\nChanges Requested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signoff_requested_on",
+   "fieldtype": "Datetime",
+   "label": "Sign-off requested on",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signed_off_by",
+   "fieldtype": "Data",
+   "label": "Signed off by",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signed_off_on",
+   "fieldtype": "Datetime",
+   "label": "Signed off on",
+   "read_only": 1
+  },
+  {
+   "fieldname": "signoff_note",
+   "fieldtype": "Small Text",
+   "label": "Sign-off note",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Projex",
+ "name": "Projex Milestone",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Member",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Projex Guest",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "position",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "milestone_name",
+ "track_changes": 1
+}

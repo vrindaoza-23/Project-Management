@@ -201,7 +201,7 @@ const completeIssues = computed(() =>
 </script>
 
 <template>
-	<div class="pjx-backlog">
+	<div class="pjx-backlog" :class="{ 'is-split': sprints.length }">
 		<!-- Sprints -->
 		<section class="pjx-bl__col">
 			<div class="pjx-bl__head">
@@ -266,7 +266,7 @@ const completeIssues = computed(() =>
 						<span class="pjx-id">{{ i.issue_id }}</span>
 						<span class="pjx-blrow__t">{{ i.title }}</span>
 						<span v-if="i.reopen_count" class="pjx-rwk" :title="`Reopened ${i.reopen_count}×`"><Icon name="undo-2" :size="12" />{{ i.reopen_count }}</span>
-						<span class="pjx-age" :data-level="age(i).level" :title="`In status ${age(i).label}`">{{ age(i).label }}</span>
+						<span v-if="age(i).level === 'stale'" class="pjx-age" :title="`In status ${age(i).label}`"><Icon name="clock" :size="11" />{{ age(i).label }}</span>
 						<span v-if="i.due_date" class="pjx-due" :class="{ 'is-today': isToday(i.due_date) }">{{ dueLabel(i.due_date) }}</span>
 						<span v-if="i.estimate" class="pjx-pts">{{ i.estimate }}</span>
 						<AvatarStack v-if="i.assignees && i.assignees.length" :users="i.assignees" :size="18" />
@@ -296,7 +296,7 @@ const completeIssues = computed(() =>
 					<span class="pjx-id">{{ i.issue_id }}</span>
 					<span class="pjx-blrow__t">{{ i.title }}</span>
 					<span v-if="i.reopen_count" class="pjx-rwk" :title="`Reopened ${i.reopen_count}×`"><Icon name="undo-2" :size="12" />{{ i.reopen_count }}</span>
-					<span class="pjx-age" :data-level="age(i).level" :title="`In status ${age(i).label}`">{{ age(i).label }}</span>
+					<span v-if="age(i).level === 'stale'" class="pjx-age" :title="`In status ${age(i).label}`"><Icon name="clock" :size="11" />{{ age(i).label }}</span>
 					<span v-if="i.estimate" class="pjx-pts">{{ i.estimate }}</span>
 					<AvatarStack v-if="i.assignees && i.assignees.length" :users="i.assignees" :size="18" />
 					<Dropdown :options="moveOptions(i)">
@@ -321,9 +321,17 @@ const completeIssues = computed(() =>
 </template>
 
 <style scoped>
-.pjx-backlog { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 16px; overflow-y: auto; }
+/* Adaptive planning layout:
+   • No sprints  → a single centred Backlog column (no wasted half).
+   • Has sprints → Sprints and Backlog side by side, so the Backlog stays
+     reachable at the top-right instead of being buried below every sprint. */
+.pjx-backlog { display: grid; grid-template-columns: minmax(0, 900px); justify-content: center; align-items: start; gap: 24px; padding: 20px 24px 40px; overflow-y: auto; }
+.pjx-backlog.is-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); justify-content: stretch; gap: 20px; }
 .pjx-bl__col { min-width: 0; }
-.pjx-bl__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+/* Hairline between the stacked sections only in single-column mode; side by
+   side they don't need it. */
+.pjx-backlog:not(.is-split) .pjx-bl__col + .pjx-bl__col { padding-top: 22px; border-top: 1px solid var(--outline-gray-1); }
+.pjx-bl__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .pjx-bl__title { display: flex; align-items: center; gap: 7px; font-size: 14px; font-weight: 600; color: var(--ink-gray-9); }
 .pjx-cap { font-size: 12px; color: var(--ink-gray-5); }
 .pjx-sprint { border: 1px solid var(--outline-gray-2); border-radius: 10px; margin-bottom: 12px; background: var(--surface-white); }
@@ -349,7 +357,11 @@ const completeIssues = computed(() =>
 .pjx-pts { min-width: 20px; height: 18px; padding: 0 6px; display: inline-grid; place-items: center; border-radius: 5px; background: var(--surface-gray-2); font-size: 11px; font-weight: 600; color: var(--ink-gray-7); }
 .pjx-iconbtn { border: 0; background: transparent; cursor: pointer; color: var(--ink-gray-5); width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; }
 .pjx-iconbtn:hover { background: var(--surface-gray-3); color: var(--ink-gray-8); }
+/* The per-row move action is revealed on hover/focus (like the drag grip) so the
+   resting trailing lane stays calm. Sprint-header icon buttons are unaffected. */
+.pjx-blrow .pjx-iconbtn { opacity: 0; transition: opacity 0.12s ease; }
+.pjx-blrow:hover .pjx-iconbtn, .pjx-blrow:focus-within .pjx-iconbtn { opacity: 1; }
 .pjx-bl__empty { padding: 14px 10px; font-size: 13px; color: var(--ink-gray-4); }
 .pjx-bl__newsprint { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed var(--outline-gray-2); border-radius: 10px; margin-bottom: 12px; }
-@media (max-width: 980px) { .pjx-backlog { grid-template-columns: 1fr; } }
+@media (max-width: 980px) { .pjx-backlog.is-split { grid-template-columns: 1fr; } }
 </style>

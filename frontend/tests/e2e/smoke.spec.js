@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { collectErrors, openProject, openSurface, openTaskView } from './helpers'
+import { collectErrors, openProject, openSurface, openTaskView, openMoreItem } from './helpers'
 
 // Broad smoke: every major surface loads, shows a landmark element, and logs no
 // console/page errors. This is the codified version of the manual audit — it
@@ -28,7 +28,8 @@ test.describe('Project surfaces load cleanly', () => {
 	test('Overview shows status panel', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await expect(page.getByText('Status overview')).toBeVisible()
+		await expect(page.locator('.pjx-kpis')).toBeVisible({ timeout: 15000 })
+		await expect(page.getByText('Recent activity')).toBeVisible()
 		await page.waitForTimeout(800)
 		expect(errors, errors.join('\n')).toEqual([])
 	})
@@ -45,26 +46,24 @@ test.describe('Project surfaces load cleanly', () => {
 		}
 	})
 
-	test('Dashboard, Timesheets, Docs surfaces load', async ({ page }) => {
+	test('Overview, Delivery, Docs surfaces load', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await openSurface(page, 'Dashboard')
+		await openSurface(page, 'Overview')
 		await page.waitForTimeout(1000)
-		await openSurface(page, 'Timesheets')
+		await openSurface(page, 'Delivery')
 		await page.waitForTimeout(1000)
 		await openSurface(page, 'Docs')
 		await page.waitForTimeout(1000)
 		expect(errors, errors.join('\n')).toEqual([])
 	})
 
-	test('More menu surfaces (Reports / Activity) load', async ({ page }) => {
+	test('More menu surfaces (Timesheets / Activity) load', async ({ page }) => {
 		const errors = collectErrors(page)
 		await openProject(page, 'BIL')
-		await page.getByRole('button', { name: /^More/ }).click()
-		await page.getByRole('menuitem', { name: /Reports/ }).click()
-		await page.waitForTimeout(1200)
-		await page.getByRole('button', { name: /^More/ }).click()
-		await page.getByRole('menuitem', { name: /Activity/ }).click()
+		await openMoreItem(page, 'Timesheets')
+		await page.waitForTimeout(1000)
+		await openMoreItem(page, 'Activity')
 		await page.waitForTimeout(1200)
 		expect(errors, errors.join('\n')).toEqual([])
 	})

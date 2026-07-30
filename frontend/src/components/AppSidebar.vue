@@ -1,22 +1,27 @@
 <script setup>
 import { h, ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
 	Sidebar,
 	SidebarHeader,
 	SidebarItem,
 	SidebarLabel,
 	SidebarCollapseToggle,
+	Dropdown,
+	ContextMenu,
 	createResource,
 } from 'frappe-ui'
 import Icon from './Icon.vue'
 import { store, reloadBootstrap, userName } from '@/data/store'
 import { ui, openCreateProject, openCreateWorkspace, openCreate, openAppSettings } from '@/data/ui'
 import { tweaks, setTweak } from '@/composables/useTweaks'
-import { notify, notifyError, promptText } from '@/utils/feedback'
+import { notify, notifyError, promptText, confirm } from '@/utils/feedback'
 
 const route = useRoute()
+const router = useRouter()
 const favToggler = createResource({ url: 'projex.api.toggle_favorite' })
+const archiver = createResource({ url: 'projex.api.archive_project' })
+const deleter = createResource({ url: 'projex.api.delete_project' })
 
 // Collapse state (persisted) drives frappe-ui's <Sidebar v-model:collapsed>.
 const collapsed = computed({
@@ -34,14 +39,70 @@ function isActive(path) {
 const favoriteProjects = computed(() =>
 	store.projects.filter((p) => (store.favorites || []).includes(p.name)),
 )
-async function toggleFav(key, e) {
-	e.preventDefault()
-	e.stopPropagation()
+async function doToggleFav(key) {
 	await favToggler.submit({ project: key })
 	reloadBootstrap()
 }
+function toggleFav(key, e) {
+	e.preventDefault()
+	e.stopPropagation()
+	doToggleFav(key)
+}
 function isFav(key) {
 	return (store.favorites || []).includes(key)
+}
+
+// If the project the user is currently viewing leaves the sidebar (archived or
+// deleted), fall back to the default route so ProjectView doesn't 404.
+function leaveIfActive(p) {
+	if (route.params.key === p.key) router.push('/inbox')
+}
+
+async function archiveProject(p) {
+	try {
+		await archiver.submit({ project: p.name, archived: 1 })
+		leaveIfActive(p)
+		await reloadBootstrap()
+		notify.success(`“${p.project_name}” archived`)
+	} catch (e) {
+		notifyError(e, 'Could not archive project')
+	}
+}
+
+async function deleteProject(p) {
+	const ok = await confirm({
+		title: `Delete project “${p.project_name}”`,
+		message: 'All of its tasks, labels and cycles will be permanently deleted. This cannot be undone.',
+		confirmLabel: 'Delete project',
+		theme: 'red',
+	})
+	if (!ok) return
+	try {
+		await deleter.submit({ project: p.name })
+		leaveIfActive(p)
+		await reloadBootstrap()
+		notify.success(`“${p.project_name}” deleted`)
+	} catch (e) {
+		notifyError(e, 'Could not delete project')
+	}
+}
+
+// Shared row menu for both the hover "⋯" dropdown and the right-click context
+// menu. Archive/Delete only appear where the user can manage the project.
+const menuIcon = (name) => ({ render: () => h(Icon, { name, size: 15 }) })
+function rowMenu(p) {
+	const items = [
+		{
+			label: isFav(p.name) ? 'Remove from favorites' : 'Add to favorites',
+			icon: menuIcon('star'),
+			onClick: () => doToggleFav(p.name),
+		},
+	]
+	if (p.can_manage) {
+		items.push({ label: 'Archive', icon: menuIcon('archive'), onClick: () => archiveProject(p) })
+		items.push({ label: 'Delete', icon: menuIcon('trash-2'), theme: 'red', onClick: () => deleteProject(p) })
+	}
+	return items
 }
 
 const currentWorkspace = computed(() =>
@@ -204,7 +265,7 @@ async function newTeam() {
 			<SidebarItem label="My tasks" to="/my-tasks" :active="isActive('/my-tasks')">
 				<template #prefix><Icon name="circle-check-big" :size="16" /></template>
 			</SidebarItem>
-			<SidebarItem v-if="store.canManageUsers" label="Users" to="/users" :active="isActive('/users')">
+			<SidebarItem v-if="store.canManageUsers" label="People" to="/users" :active="isActive('/users')">
 				<template #prefix><Icon name="users" :size="16" /></template>
 			</SidebarItem>
 
@@ -239,25 +300,34 @@ async function newTeam() {
 					<template #suffix><span class="pjx-navbadge">{{ g.projects.length }}</span></template>
 				</SidebarItem>
 				<template v-if="collapsed || !collapsedTeams[g.key]">
-					<SidebarItem
-						v-for="p in g.projects"
-						:key="p.name"
-						:label="p.project_name"
-						:to="`/projects/${p.key}`"
-						:active="route.params.key === p.key"
-					>
-						<template #prefix><Icon :name="p.icon || 'folder'" :size="15" /></template>
-						<template #suffix>
-							<button
-								class="pjx-star"
-								:class="{ on: isFav(p.name) }"
-								:title="isFav(p.name) ? 'Unstar' : 'Star'"
-								@click="toggleFav(p.name, $event)"
+					<ContextMenu v-for="p in g.projects" :key="p.name" :options="rowMenu(p)">
+						<div class="pjx-side__row">
+							<SidebarItem
+								:label="p.project_name"
+								:to="`/projects/${p.key}`"
+								:active="route.params.key === p.key"
 							>
-								<Icon name="star" :size="13" />
-							</button>
-						</template>
-					</SidebarItem>
+								<template #prefix><Icon :name="p.icon || 'folder'" :size="15" /></template>
+								<template #suffix>
+									<span class="pjx-side__rowacts">
+										<button
+											class="pjx-star"
+											:class="{ on: isFav(p.name) }"
+											:title="isFav(p.name) ? 'Unstar' : 'Star'"
+											@click="toggleFav(p.name, $event)"
+										>
+											<Icon name="star" :size="13" />
+										</button>
+										<Dropdown :options="rowMenu(p)" side="right" align="start">
+											<button class="pjx-more" title="More" @pointerdown.stop @click.stop.prevent>
+												<Icon name="ellipsis" :size="15" />
+											</button>
+										</Dropdown>
+									</span>
+								</template>
+							</SidebarItem>
+						</div>
+					</ContextMenu>
 				</template>
 			</template>
 			<SidebarItem
@@ -344,7 +414,18 @@ async function newTeam() {
 	background: var(--surface-gray-3);
 	color: var(--ink-gray-6);
 }
-.pjx-star {
+/* The ContextMenu trigger wraps each project row; display:contents keeps the
+   SidebarItem a direct flex child of the nav body so gap/spacing are unchanged. */
+.pjx-side__row {
+	display: contents;
+}
+.pjx-side__rowacts {
+	display: inline-flex;
+	align-items: center;
+	gap: 1px;
+}
+.pjx-star,
+.pjx-more {
 	border: 0;
 	background: transparent;
 	cursor: pointer;
@@ -356,7 +437,15 @@ async function newTeam() {
 	display: grid;
 	place-items: center;
 }
-:deep([data-slot='sidebar-item']:hover) .pjx-star {
+.pjx-more:hover {
+	background: var(--surface-gray-3);
+	color: var(--ink-gray-7);
+}
+/* Reveal the row actions on hover; the ⋯ also stays visible while its menu is
+   open (reka sets data-state="open" on the trigger). */
+:deep([data-slot='sidebar-item']:hover) .pjx-star,
+:deep([data-slot='sidebar-item']:hover) .pjx-more,
+.pjx-more[data-state='open'] {
 	opacity: 1;
 }
 .pjx-star.on {

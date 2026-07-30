@@ -12,6 +12,9 @@ import frappe
 
 ROLES = ["Projex Admin", "Projex Member", "Projex Guest"]
 
+# The client/customer role is portal-only — it must NOT get desk access.
+PORTAL_ROLES = ["Projex Client"]
+
 # status_name, category, color_theme, dot_hollow, position
 DEFAULT_STATUSES = [
 	("Backlog", "backlog", "gray", 1, 0),
@@ -27,6 +30,11 @@ def ensure_roles():
 	for r in ROLES:
 		if not frappe.db.exists("Role", r):
 			frappe.get_doc({"doctype": "Role", "role_name": r, "desk_access": 1}).insert(
+				ignore_permissions=True
+			)
+	for r in PORTAL_ROLES:
+		if not frappe.db.exists("Role", r):
+			frappe.get_doc({"doctype": "Role", "role_name": r, "desk_access": 0}).insert(
 				ignore_permissions=True
 			)
 

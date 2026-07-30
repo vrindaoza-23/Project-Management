@@ -28,10 +28,19 @@ export async function openProject(page, key = 'BIL') {
 	await expect(page.locator('.pjx-topbar').first()).toBeVisible({ timeout: 20000 })
 }
 
-// Click a top-level surface (Overview / Tasks / Dashboard / Timesheets / Docs).
+// Click a top-level surface (Overview / Tasks / Delivery / Docs).
 export async function openSurface(page, name) {
 	await page.getByRole('radio', { name: new RegExp('^' + name) }).first().click()
 	await page.waitForTimeout(600)
+}
+
+// Open a secondary surface from the "More" menu (Timesheets / Finance / Activity).
+// Target the surface-level More tab (.pjx-moretab) specifically — task rows also
+// render a per-row "More" action button (.pjx-more), so a name-only match is ambiguous.
+export async function openMoreItem(page, name) {
+	await page.locator('.pjx-moretab').click()
+	await page.getByRole('menuitem', { name: new RegExp(name) }).click()
+	await page.waitForTimeout(800)
 }
 
 // Within the Tasks surface, switch task sub-view (List/Board/Calendar/Gantt/Backlog).

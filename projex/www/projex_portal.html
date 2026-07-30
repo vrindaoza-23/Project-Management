@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23171717'/><text x='16' y='23' font-family='ui-sans-serif,system-ui,Arial' font-size='20' font-weight='700' fill='%23ffffff' text-anchor='middle'>P</text></svg>" />
+<title>Projex · Client Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+<style>
+/* ── Frappe UI · Espresso tokens (transcribed from frontend/src/styles/tokens.css)
+   so this standalone www page reads exactly like the Vue app without pulling
+   in the frappe-ui bundle. Semantic tokens auto-flip via prefers-color-scheme. */
+:root {
+  --surface-white:#FFFFFF; --surface-gray-1:#F8F8F8; --surface-gray-2:#F3F3F3;
+  --surface-gray-3:#EDEDED; --surface-gray-4:#E2E2E2;
+  --ink-white:#FFFFFF; --ink-gray-3:#C7C7C7; --ink-gray-4:#999999; --ink-gray-5:#7C7C7C;
+  --ink-gray-6:#525252; --ink-gray-7:#525252; --ink-gray-8:#383838; --ink-gray-9:#171717;
+  --outline-gray-1:#EDEDED; --outline-gray-2:#E2E2E2; --outline-gray-3:#C7C7C7;
+  --blue-500:#0289F7;
+  --surface-blue-2:#E6F4FF;  --ink-blue-3:#007BE0;  --outline-blue-1:#A7D7FD;
+  --surface-green-2:#E4FAEB; --ink-green-3:#278F5E; --outline-green-1:#A6EFC0;
+  --surface-amber-2:#FFF7D3; --ink-amber-3:#DB7706; --outline-amber-1:#FBDB73;
+  --surface-red-2:#FFE7E7;   --ink-red-3:#E03636;   --outline-red-1:#FDC2C2;
+
+  /* page/card roles: card sits one step lighter than the page in both themes */
+  --pp-page:#F8F8F8; --pp-card:#FFFFFF;
+
+  --font-sans:'InterVar','Inter',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --radius-sm:4px; --radius:8px; --radius-md:10px; --radius-lg:12px; --radius-xl:16px; --radius-full:9999px;
+  --shadow-sm:0px 1px 2px rgba(0,0,0,0.1);
+  --shadow-lg:0px 0px 1px rgba(0,0,0,0.35), 0px 6px 8px -4px rgba(0,0,0,0.1);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-white:#0F0F0F; --surface-gray-1:#191919; --surface-gray-2:#2B2B2B;
+    --surface-gray-3:#343434; --surface-gray-4:#424242;
+    --ink-gray-3:#717171; --ink-gray-4:#717171; --ink-gray-5:#808080;
+    --ink-gray-6:#999999; --ink-gray-7:#AFAFAF; --ink-gray-8:#D4D4D4; --ink-gray-9:#F8F8F8;
+    --ink-white:#0F0F0F;
+    --outline-gray-1:#232323; --outline-gray-2:#343434; --outline-gray-3:#424242;
+    --surface-blue-2:#052B53; --surface-green-2:#0A3F27; --surface-amber-2:#4B2606; --surface-red-2:#361515;
+    --pp-page:#0F0F0F; --pp-card:#1C1C1C;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--pp-page); color: var(--ink-gray-8);
+  font-family: var(--font-sans); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+.pp-wrap { max-width: 880px; margin: 0 auto; padding: 32px 20px 96px; }
+.pp-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.pp-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px;
+  color: var(--ink-gray-9); letter-spacing: -0.01em; }
+.pp-brand .dot { width: 28px; height: 28px; border-radius: var(--radius); background: var(--ink-gray-9);
+  color: var(--ink-white); display: grid; place-items: center; font-size: 15px; font-weight: 600; }
+.pp-user { font-size: 13px; color: var(--ink-gray-5); }
+.pp-user a { color: var(--ink-gray-7); text-decoration: none; margin-left: 10px; font-weight: 500; }
+.pp-user a:hover { color: var(--ink-gray-9); }
+select.pp-proj { font: inherit; font-size: 13px; height: 32px; padding: 0 30px 0 11px;
+  border: 1px solid var(--outline-gray-2); border-radius: var(--radius); color: var(--ink-gray-8);
+  appearance: none; cursor: pointer; background: var(--pp-card)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237C7C7C' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 9px center; }
+select.pp-proj:hover { border-color: var(--outline-gray-3); }
+
+.pp-hero { background: var(--pp-card); border: 1px solid var(--outline-gray-1); border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-sm); padding: 24px; margin-bottom: 20px; }
+.pp-hero h1 { margin: 0 0 3px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink-gray-9); }
+.pp-hero .sub { color: var(--ink-gray-5); font-size: 13px; }
+.pp-bar { height: 6px; border-radius: var(--radius-full); background: var(--surface-gray-3); margin-top: 18px; overflow: hidden; }
+.pp-bar > i { display: block; height: 100%; background: var(--blue-500); border-radius: var(--radius-full); transition: width .4s ease; }
+.pp-stats { display: flex; gap: 28px; margin-top: 16px; font-size: 13px; color: var(--ink-gray-5); }
+.pp-stats b { color: var(--ink-gray-9); font-size: 18px; font-weight: 600; display: block; margin-bottom: 1px; letter-spacing: -0.01em; }
+
+.pp-tabs { display: inline-flex; gap: 2px; margin-bottom: 18px; padding: 3px; background: var(--surface-gray-2); border-radius: var(--radius-md); }
+.pp-tab { padding: 5px 14px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer;
+  color: var(--ink-gray-5); user-select: none; transition: color .15s, background .15s; }
+.pp-tab:hover { color: var(--ink-gray-8); }
+.pp-tab.active { background: var(--pp-card); color: var(--ink-gray-9); box-shadow: var(--shadow-sm); }
+
+.pp-phase { margin-bottom: 8px; }
+.pp-phase > h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600;
+  color: var(--ink-gray-5); margin: 22px 2px 10px; }
+.pp-ms { background: var(--pp-card); border: 1px solid var(--outline-gray-1); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm); padding: 16px 18px; margin-bottom: 10px; }
+.pp-ms-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.pp-ms-head .name { font-weight: 600; font-size: 14px; color: var(--ink-gray-9); }
+.pp-ms-head .meta { font-size: 12px; color: var(--ink-gray-5); margin-top: 3px; }
+.pill { display: inline-flex; align-items: center; font-size: 12px; font-weight: 500; padding: 3px 9px;
+  border-radius: var(--radius-full); white-space: nowrap; line-height: 1.2; }
+.pill.plan { background: var(--surface-gray-3); color: var(--ink-gray-7); }
+.pill.prog { background: var(--surface-blue-2); color: var(--ink-blue-3); }
+.pill.deliv { background: var(--surface-amber-2); color: var(--ink-amber-3); }
+.pill.appr { background: var(--surface-green-2); color: var(--ink-green-3); }
+.pill.rej { background: var(--surface-red-2); color: var(--ink-red-3); }
+.pill.await { background: var(--surface-blue-2); color: var(--ink-blue-3); box-shadow: inset 0 0 0 1px var(--outline-blue-1); }
+.pp-del { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-top: 1px solid var(--outline-gray-1); }
+.pp-del:first-of-type { margin-top: 4px; }
+.pp-del .dn { font-size: 13px; font-weight: 500; color: var(--ink-gray-8); }
+.pp-del .dd { font-size: 12px; color: var(--ink-gray-5); margin-top: 2px; line-height: 1.5; }
+.pp-actions { display: flex; gap: 8px; align-items: center; flex: none; }
+button.btn { font: inherit; font-size: 13px; font-weight: 500; height: 30px; padding: 0 12px;
+  border-radius: var(--radius); border: 1px solid var(--outline-gray-2); background: var(--pp-card);
+  color: var(--ink-gray-8); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  white-space: nowrap; transition: background .12s, border-color .12s; }
+button.btn:hover { background: var(--surface-gray-2); border-color: var(--outline-gray-3); }
+button.btn.pri { background: var(--ink-gray-9); border-color: var(--ink-gray-9); color: var(--ink-white); }
+button.btn.pri:hover { background: var(--ink-gray-8); border-color: var(--ink-gray-8); }
+button.btn.ghost { background: transparent; border-color: var(--outline-gray-2); color: var(--ink-red-3); }
+button.btn.ghost:hover { background: var(--surface-red-2); border-color: var(--outline-red-1); }
+button.btn:disabled { opacity: .5; cursor: default; }
+button.btn:focus-visible { outline: 2px solid var(--blue-500); outline-offset: 1px; }
+
+.pp-issue-form { background: var(--pp-card); border: 1px solid var(--outline-gray-1); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm); padding: 16px 18px; margin-bottom: 16px; }
+.pp-issue-form input, .pp-issue-form textarea, .pp-issue-form select {
+  width: 100%; font: inherit; font-size: 13px; padding: 8px 11px; border: 1px solid var(--outline-gray-2);
+  border-radius: var(--radius); margin-bottom: 10px; background: var(--surface-gray-2); color: var(--ink-gray-9);
+  transition: background .12s, border-color .12s, box-shadow .12s; }
+.pp-issue-form input::placeholder, .pp-issue-form textarea::placeholder { color: var(--ink-gray-4); }
+.pp-issue-form textarea { resize: vertical; line-height: 1.5; }
+.pp-issue-form input:focus, .pp-issue-form textarea:focus, .pp-issue-form select:focus {
+  outline: none; background: var(--pp-card); border-color: var(--outline-gray-3); box-shadow: 0 0 0 2px var(--surface-gray-3); }
+.pp-issue-form .row { display: flex; gap: 10px; align-items: center; }
+.pp-issue-form .row select { margin-bottom: 0; height: 36px; }
+.pp-issue-form .row .btn { margin-bottom: 0; height: 36px; }
+.pp-issue-row { background: var(--pp-card); border: 1px solid var(--outline-gray-1); border-radius: var(--radius-md);
+  padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  box-shadow: var(--shadow-sm); }
+.pp-issue-row .t { font-size: 13px; font-weight: 500; color: var(--ink-gray-9); }
+.pp-issue-row .k { font-size: 12px; color: var(--ink-gray-5); margin-top: 2px; }
+.hidden { display: none !important; }
+.pp-empty { text-align: center; color: var(--ink-gray-5); padding: 56px 20px; font-size: 13px; line-height: 1.6; }
+.pp-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(8px);
+  background: var(--ink-gray-9); color: var(--ink-white); padding: 10px 16px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 500; box-shadow: var(--shadow-lg); opacity: 0;
+  transition: opacity .2s, transform .2s; pointer-events: none; }
+.pp-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div class="pp-wrap">
+  <div class="pp-top">
+    <div class="pp-brand"><span class="dot">P</span> Projex · Client Portal</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <select class="pp-proj hidden" id="pp-proj"></select>
+      <span class="pp-user" id="pp-username"><a href="/api/method/logout">Sign out</a></span>
+    </div>
+  </div>
+  <div id="pp-body"><div class="pp-empty">Loading your projects…</div></div>
+</div>
+<div class="pp-toast" id="pp-toast"></div>
+
+<script>
+window.PP = { csrf_token: {{ pp_csrf | tojson }}, portal_user: {{ pp_user | tojson }} };
+</script>
+<script>
+const CSRF = window.PP.csrf_token || "";
+$id = (id) => document.getElementById(id);
+const $q = (s, r=document) => r.querySelector(s);
+const esc = (s) => (s==null?"":String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function call(method, args={}) {
+  const res = await fetch(`/api/method/projex.portal.${method}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", "X-Frappe-CSRF-Token": CSRF },
+    body: new URLSearchParams(args),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(res.status === 403 ? "Not permitted" : (data.exc_type || "Request failed"));
+  return data.message;
+}
+function toast(msg) {
+  const t = $id("pp-toast"); t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+const STATUS_PILL = {
+  "Planned": ["plan","Planned"], "In Progress": ["prog","In progress"],
+  "Delivered": ["deliv","Delivered"], "Approved": ["appr","Approved"], "Rejected": ["rej","Changes requested"],
+};
+const DEL_PILL = {
+  "Draft": ["plan","Draft"], "Submitted": ["deliv","In review"],
+  "Approved": ["appr","Approved"], "Changes Requested": ["rej","Changes requested"],
+};
+
+let STATE = { project: null, tab: "delivery" };
+
+async function boot() {
+  $id("pp-username").insertAdjacentHTML("afterbegin", esc(window.PP.portal_user || ""));
+  const b = await call("client_bootstrap");
+  if (!b.projects.length) {
+    $id("pp-body").innerHTML = `<div class="pp-empty">You don't have access to any projects yet.<br>
+      Your implementation partner will grant you access.</div>`;
+    return;
+  }
+  const sel = $id("pp-proj");
+  sel.innerHTML = b.projects.map(p => `<option value="${esc(p.name)}">${esc(p.project_name)}</option>`).join("");
+  if (b.projects.length > 1) sel.classList.remove("hidden");
+  sel.onchange = () => { STATE.project = sel.value; render(); };
+  STATE.project = b.projects[0].name;
+  render();
+}
+
+function heroHtml(plan) {
+  const totals = plan.phases.flatMap(ph => ph.milestones);
+  const approved = totals.filter(m => m.status === "Approved").length;
+  const awaiting = totals.filter(m => m.awaiting_client).length;
+  const pct = totals.length ? Math.round(approved / totals.length * 100) : 0;
+  return `<div class="pp-hero">
+    <h1>${esc(plan.project_name)}</h1>
+    <div class="sub">Implementation delivery status</div>
+    <div class="pp-bar"><i style="width:${pct}%"></i></div>
+    <div class="pp-stats">
+      <span><b>${pct}%</b> complete</span>
+      <span><b>${approved}/${totals.length}</b> milestones approved</span>
+      <span><b>${awaiting}</b> awaiting your review</span>
+    </div>
+  </div>
+  <div class="pp-tabs">
+    <div class="pp-tab ${STATE.tab==='delivery'?'active':''}" data-tab="delivery">Delivery</div>
+    <div class="pp-tab ${STATE.tab==='issues'?'active':''}" data-tab="issues">Issues</div>
+  </div>`;
+}
+
+function milestoneHtml(m) {
+  const [cls, label] = STATUS_PILL[m.status] || ["plan", m.status];
+  const dels = (m.deliverables || []).map(d => {
+    const [dc, dl] = DEL_PILL[d.status] || ["plan", d.status];
+    const canReview = d.status === "Draft" || d.status === "Submitted";
+    const note = d.review_note ? `<div class="dd">Note: ${esc(d.review_note)}</div>` : "";
+    return `<div class="pp-del">
+      <div><div class="dn">${esc(d.deliverable_name)}</div>
+        ${d.description?`<div class="dd">${esc(d.description)}</div>`:""}${note}</div>
+      <div class="pp-actions">
+        <span class="pill ${dc}">${dl}</span>
+        ${canReview?`<button class="btn pri" data-approve="${esc(d.name)}">Approve</button>
+        <button class="btn ghost" data-changes="${esc(d.name)}">Request changes</button>`:""}
+      </div>
+    </div>`;
+  }).join("");
+  const awaitPill = m.awaiting_client ? `<span class="pill await">Awaiting you</span>` : "";
+  return `<div class="pp-ms">
+    <div class="pp-ms-head">
+      <div><div class="name">${esc(m.milestone_name)}</div>
+        <div class="meta">${m.target_date?("Target "+esc(m.target_date)+" · "):""}${m.progress}% of deliverables approved</div></div>
+      <div class="pp-actions">${awaitPill}<span class="pill ${cls}">${label}</span></div>
+    </div>${dels}
+  </div>`;
+}
+
+async function render() {
+  const body = $id("pp-body");
+  body.innerHTML = `<div class="pp-empty">Loading…</div>`;
+  const plan = await call("client_get_delivery_plan", { project: STATE.project });
+  let html = heroHtml(plan);
+  if (STATE.tab === "delivery") {
+    const phases = plan.phases.filter(ph => ph.milestones && ph.milestones.length);
+    html += phases.length ? phases.map(ph => `<div class="pp-phase">
+        <h3>${esc(ph.phase_name)}</h3>${ph.milestones.map(milestoneHtml).join("")}</div>`).join("")
+      : `<div class="pp-empty">No milestones have been published yet.</div>`;
+  } else {
+    html += await issuesHtml();
+  }
+  body.innerHTML = html;
+  wire();
+}
+
+async function issuesHtml() {
+  const data = await call("client_list_issues", { project: STATE.project });
+  const list = data.issues.length ? data.issues.map(i => `<div class="pp-issue-row">
+      <div><div class="t">${esc(i.title)}</div><div class="k">${esc(i.issue_id||"")} · ${esc(i.issue_type)}</div></div>
+      <span class="pill prog">${esc(i.status||"Open")}</span></div>`).join("")
+    : `<div class="pp-empty">You haven't raised any issues yet.</div>`;
+  return `<div class="pp-issue-form">
+    <input id="iss-title" placeholder="Summary — e.g. Report total looks wrong" />
+    <textarea id="iss-desc" rows="3" placeholder="Describe the issue or request…"></textarea>
+    <div class="row">
+      <select id="iss-type"><option>Bug</option><option>Task</option><option>Story</option></select>
+      <button class="btn pri" id="iss-submit" style="white-space:nowrap">Raise issue</button>
+    </div>
+  </div>${list}`;
+}
+
+function wire() {
+  document.querySelectorAll(".pp-tab").forEach(t => t.onclick = () => { STATE.tab = t.dataset.tab; render(); });
+  document.querySelectorAll("[data-approve]").forEach(b => b.onclick = () => review(b.dataset.approve, "Approved"));
+  document.querySelectorAll("[data-changes]").forEach(b => b.onclick = () => {
+    const note = prompt("What changes are needed?"); if (note === null) return;
+    review(b.dataset.changes, "Changes Requested", note);
+  });
+  const submit = $id("iss-submit");
+  if (submit) submit.onclick = async () => {
+    const title = $id("iss-title").value.trim(); if (!title) return toast("Add a summary first");
+    submit.disabled = true;
+    try {
+      const r = await call("client_raise_issue", { project: STATE.project, title,
+        description: $id("iss-desc").value, issue_type: $id("iss-type").value });
+      toast("Issue raised: " + r.issue_id); render();
+    } catch (e) { toast(e.message); submit.disabled = false; }
+  };
+}
+
+async function review(deliverable, outcome, note="") {
+  try {
+    await call("client_review_deliverable", { deliverable, outcome, note });
+    toast(outcome === "Approved" ? "Deliverable approved" : "Changes requested");
+    render();
+  } catch (e) { toast(e.message); }
+}
+
+boot().catch(e => { $id("pp-body").innerHTML = `<div class="pp-empty">Couldn't load the portal: ${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

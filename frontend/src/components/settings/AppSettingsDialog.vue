@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
 	Avatar,
@@ -16,6 +16,7 @@ import SelectField from '../SelectField.vue'
 import ProfileSettings from './ProfileSettings.vue'
 import PreferenceSettings from './PreferenceSettings.vue'
 import IntegrationsSettings from './IntegrationsSettings.vue'
+import PeopleAccessSettings from './PeopleAccessSettings.vue'
 import ProjectGeneralSettings from './ProjectGeneralSettings.vue'
 import ProjectMembersSettings from './ProjectMembersSettings.vue'
 import ProjectLabelsSettings from './ProjectLabelsSettings.vue'
@@ -77,10 +78,43 @@ function loadProject() {
 }
 watch(projectKey, loadProject)
 
+// Select a section by driving reka-ui's own nav trigger. Setting the bound tab
+// programmatically doesn't reliably re-select on re-open (its TabsRoot resolves
+// controlled-vs-passive from the model at mount, and mounts behind the dialog
+// transition), so we dispatch the same left-mousedown the trigger listens for —
+// the one interaction it always honours. Retry across frames until the trigger
+// exists, since we can't know when the transition finishes mounting it.
+function selectWhenReady(target, tries = 0) {
+	if (!open.value) return
+	requestAnimationFrame(() => {
+		if (!open.value) return
+		const trigger = document.querySelector(`[role="tab"][id$="-trigger-${target}"]`)
+		if (trigger) {
+			if (trigger.getAttribute('aria-selected') !== 'true') {
+				trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0 }))
+			}
+			return
+		}
+		if (tries < 15) selectWhenReady(target, tries + 1)
+	})
+}
+
 // Opening is context-aware: pre-select the workspace/project on screen, else keep
 // the last selection, else the first available. Refresh even if the key is unchanged.
 watch(open, (v) => {
 	if (!v) return
+	// Resolve the section to show: a requested tab (e.g. "Manage access" deep-links
+	// to People access), else the last-viewed section, else Profile.
+	let target = 'profile'
+	if (ui.appSettingsTab) {
+		target = ui.appSettingsTab
+		ui.appSettingsTab = null
+	} else if (tab.value) {
+		target = tab.value
+	}
+	// The dialog would otherwise open with no section selected (blank pane) — drive
+	// the target trigger once its TabsRoot has mounted.
+	nextTick(() => selectWhenReady(target))
 	const wsValid = (k) => !!k && workspaces.value.some((w) => w.name === k)
 	const wsTarget = wsValid(ui.currentWorkspace) ? ui.currentWorkspace : wsValid(workspaceKey.value) ? workspaceKey.value : workspaces.value[0]?.name || ''
 	if (wsTarget !== workspaceKey.value) workspaceKey.value = wsTarget
@@ -133,6 +167,15 @@ function onWorkspaceGone(key) {
 				</SettingsNavItem>
 			</SettingsNavGroup>
 
+			<SettingsNavGroup v-if="store.canManageUsers" label="People">
+				<SettingsNavItem value="people-access">
+					<template #prefix>
+						<Icon name="users" :size="15" class="shrink-0 text-ink-gray-6" />
+					</template>
+					Access
+				</SettingsNavItem>
+			</SettingsNavGroup>
+
 			<SettingsNavGroup v-if="workspaces.length" label="Workspace settings">
 				<div class="px-1 pb-1">
 					<SelectField
@@ -172,6 +215,9 @@ function onWorkspaceGone(key) {
 			<SettingsPanel value="profile"><ProfileSettings /></SettingsPanel>
 			<SettingsPanel value="preferences"><PreferenceSettings /></SettingsPanel>
 			<SettingsPanel value="integrations"><IntegrationsSettings v-if="tab === 'integrations'" /></SettingsPanel>
+			<SettingsPanel value="people-access">
+				<PeopleAccessSettings v-if="tab === 'people-access'" :user="ui.appSettingsUser || ''" />
+			</SettingsPanel>
 
 			<SettingsPanel v-for="s in WORKSPACE_SECTIONS" :key="s.value" :value="s.value">
 				<component

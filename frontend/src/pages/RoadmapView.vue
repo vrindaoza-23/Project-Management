@@ -94,8 +94,9 @@ const gridStyle = computed(() => ({
 						<div class="pjx-roadmap__track">
 							<div
 								class="pjx-roadmap__bar"
-								:style="{ left: b.left + '%', width: b.width + '%', background: b.color || 'var(--blue-500)' }"
+								:style="{ left: b.left + '%', width: b.width + '%' }"
 							>
+								<span v-if="b.color" class="pjx-roadmap__dot" :style="{ background: b.color }" />
 								<span class="pjx-roadmap__barlabel">{{ b.label }}</span>
 							</div>
 						</div>

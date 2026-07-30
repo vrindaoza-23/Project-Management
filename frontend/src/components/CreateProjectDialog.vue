@@ -1,10 +1,11 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { createResource, Dialog, Button, FormControl } from 'frappe-ui'
+import { createResource, call, Dialog, Button, FormControl } from 'frappe-ui'
 import Icon from './Icon.vue'
 import SelectField from './SelectField.vue'
 import { store, reloadBootstrap } from '@/data/store'
+import { notify } from '@/utils/feedback'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
@@ -17,10 +18,17 @@ const color = ref('var(--blue-500)')
 const workspace = ref('')
 const team = ref('')
 const members = ref([])
+const template = ref('')
+const startDate = ref(new Date().toISOString().slice(0, 10))
 const error = ref('')
 const keyEdited = ref(false)
 
 const creator = createResource({ url: 'projex.api.create_project' })
+const templates = createResource({ url: 'projex.project_templates.list_templates', auto: true })
+const templateOptions = computed(() => [
+	{ value: '', label: 'None — start blank' },
+	...(templates.data || []).map((t) => ({ value: t.name, label: t.template_name })),
+])
 
 watch(
 	() => props.open,
@@ -33,6 +41,8 @@ watch(
 			workspace.value = store.workspaces[0]?.name || ''
 			team.value = ''
 			members.value = []
+			template.value = ''
+			startDate.value = new Date().toISOString().slice(0, 10)
 			error.value = ''
 			keyEdited.value = false
 		}
@@ -77,6 +87,21 @@ async function submit() {
 				members: members.value.map((u) => ({ user: u, role: 'Member' })),
 			}),
 		})
+		// Optionally lay out a delivery plan from a template before we navigate.
+		if (template.value) {
+			try {
+				const r = await call('projex.project_templates.instantiate_template', {
+					template: template.value,
+					project: res.key,
+					start_date: startDate.value,
+				})
+				const c = r.created
+				notify.success(`Project created — added ${c.phases} phases, ${c.tasks} tasks, ${c.milestones} milestones`)
+			} catch (e) {
+				// Project exists; only the template step failed. Land in it and tell them.
+				notify.warning('Project created, but the template could not be applied.')
+			}
+		}
 		await reloadBootstrap()
 		emit('close')
 		router.push(`/projects/${res.key}`)
@@ -143,6 +168,23 @@ async function submit() {
 						<span class="t-xs ink-5">Members</span>
 						<SelectField v-model="members" :options="userOptions" multiple placeholder="Just me" />
 					</div>
+				</div>
+				<div class="flex g-3 wrap">
+					<div class="flex col g-1" style="min-width: 200px; flex: 1">
+						<span class="t-xs ink-5">Delivery template</span>
+						<SelectField
+							:options="templateOptions"
+							:model-value="template"
+							placeholder="None — start blank"
+							@change="(v) => (template = v || '')"
+						/>
+					</div>
+					<div v-if="template" class="flex col g-1" style="min-width: 200px">
+						<FormControl v-model="startDate" type="date" label="Start date" />
+					</div>
+				</div>
+				<div v-if="template" class="t-xs ink-5">
+					Phases, tasks and milestones from the template are created and dated from the start date.
 				</div>
 				<div v-if="error" class="t-sm ink-red">{{ error }}</div>
 			</div>

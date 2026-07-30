@@ -6,6 +6,7 @@
 // To add an icon: add its kebab name below with a matching named import.
 import {
 	Activity,
+	Archive,
 	ArrowRight,
 	ArrowRightLeft,
 	AtSign,
@@ -94,6 +95,7 @@ import {
 
 export const ICONS = {
 	activity: Activity,
+	archive: Archive,
 	'arrow-right': ArrowRight,
 	'arrow-right-left': ArrowRightLeft,
 	'at-sign': AtSign,

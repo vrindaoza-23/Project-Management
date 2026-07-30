@@ -11,6 +11,8 @@ export const ui = reactive({
 	createProjectOpen: false, // create-project dialog
 	createWorkspaceOpen: false, // create-workspace dialog
 	appSettingsOpen: false, // app settings dialog (profile, preferences, projects)
+	appSettingsTab: null, // tab to open the settings dialog on (null = keep last/default)
+	appSettingsUser: null, // person to preselect in People access (deep-link from People)
 	currentWorkspace: null, // selected workspace filter (null = all)
 	sidebarCollapsed: localStorage.getItem('pjx:sidebar-collapsed') === '1',
 })
@@ -42,7 +44,9 @@ export function openCreateProject() {
 export function openCreateWorkspace() {
 	ui.createWorkspaceOpen = true
 }
-export function openAppSettings() {
+export function openAppSettings(tab = null, user = null) {
+	ui.appSettingsTab = tab
+	ui.appSettingsUser = user
 	ui.appSettingsOpen = true
 }
 
