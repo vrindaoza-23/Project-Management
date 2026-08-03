@@ -91,7 +91,7 @@ jobs:
           yarn install --frozen-lockfile
           yarn build
           npx playwright install --with-deps chromium
-          cd ../../../..   # back to frappe-bench
+          cd ../../..   # back to frappe-bench
           bench use test.localhost
           nohup bench start > /tmp/bench.log 2>&1 &
           # wait for the server
