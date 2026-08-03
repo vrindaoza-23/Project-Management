@@ -10,7 +10,13 @@ export default defineConfig({
 			lucideIcons: true,
 			jinjaBootData: true,
 			frappeProxy: true,
-			buildConfig: true,
+			// Set indexHtmlPath explicitly: the plugin's auto-detection
+			// (findAppName) only resolves inside a full bench layout, so CI's
+			// bare-repo checkout throws "indexHtmlPath is required". This path is
+			// correct from the frontend/ dir in both CI jobs and local benches.
+			buildConfig: {
+				indexHtmlPath: '../projex/www/projex.html',
+			},
 		}),
 		vue(),
 	],
