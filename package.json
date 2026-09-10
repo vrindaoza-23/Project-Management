@@ -1,0 +1,10 @@
+{
+	"name": "projex",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Root build entrypoint so bench/Frappe Cloud build the Vue SPA in frontend/",
+	"scripts": {
+		"dev": "cd frontend && yarn dev",
+		"build": "cd frontend && yarn install --frozen-lockfile && yarn build"
+	}
+}
